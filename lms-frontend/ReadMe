@@ -1,0 +1,16 @@
+after a call, if nextAction exists
+after a call, if followUpDate is set
+after sending proposal, if you need to check back
+after meeting/demo, if another step is pending
+when user manually clicks Add Follow Up
+Practical example:
+
+lead is Contacted
+you speak to them
+they say “call me Friday”
+system saves call log
+system creates follow-up:
+type: Call
+dueAt: Friday
+status: Pending
+now that lead shows on Follow Ups page
