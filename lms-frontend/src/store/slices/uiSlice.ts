@@ -8,7 +8,7 @@ interface UIState {
 }
 
 const initialState: UIState = {
-  sidebarOpen: true,
+  sidebarOpen: false,
   addLeadModalOpen: false,
   logCallModalOpen: false,
   activeLeadId: null,
@@ -20,6 +20,9 @@ const uiSlice = createSlice({
   reducers: {
     toggleSidebar(state) {
       state.sidebarOpen = !state.sidebarOpen;
+    },
+    setSidebarOpen(state, action: PayloadAction<boolean>) {
+      state.sidebarOpen = action.payload;
     },
     setAddLeadModal(state, action: PayloadAction<boolean>) {
       state.addLeadModalOpen = action.payload;
@@ -33,5 +36,5 @@ const uiSlice = createSlice({
   },
 });
 
-export const { toggleSidebar, setAddLeadModal, setLogCallModal, setActiveLeadId } = uiSlice.actions;
+export const { toggleSidebar, setSidebarOpen, setAddLeadModal, setLogCallModal, setActiveLeadId } = uiSlice.actions;
 export default uiSlice.reducer;

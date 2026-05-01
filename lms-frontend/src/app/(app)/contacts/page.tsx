@@ -1,16 +1,20 @@
 'use client';
 
 import { Plus, Search, Mail, Phone } from 'lucide-react';
-import { contacts } from '@/data/mockData';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from '@/components/ui/Modal';
 import AddContactForm, { ContactFormData } from '@/components/contacts/AddContactForm';
 import { Contact } from '@/types';
+import { contactsService } from '@/services';
 
 export default function ContactsPage() {
   const [search, setSearch] = useState('');
-  const [contactList, setContactList] = useState<Contact[]>(contacts);
+  const [contactList, setContactList] = useState<Contact[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
+
+  useEffect(() => {
+    contactsService.getAll(search).then(setContactList).catch(() => setContactList([]));
+  }, [search]);
 
   const filtered = contactList.filter(c =>
     !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.company.toLowerCase().includes(search.toLowerCase())

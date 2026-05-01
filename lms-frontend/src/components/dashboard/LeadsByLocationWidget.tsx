@@ -1,8 +1,22 @@
-import { leadsByLocation } from '@/data/mockData';
+'use client';
+
+import { useAppSelector } from '@/hooks/redux';
 
 const dotColors = ['bg-indigo-500', 'bg-blue-400', 'bg-yellow-400', 'bg-red-400', 'bg-green-400', 'bg-gray-400'];
 
 export default function LeadsByLocationWidget() {
+  const leads = useAppSelector((state) => state.leads.leads);
+  const total = leads.length;
+  const leadsByLocation = Object.entries(leads.reduce<Record<string, number>>((acc, lead) => {
+    const location = lead.location || lead.address.country || 'Unspecified';
+    acc[location] = (acc[location] ?? 0) + 1;
+    return acc;
+  }, {})).map(([country, count]) => ({
+    country,
+    leads: count,
+    percentage: total ? Math.round((count / total) * 100) : 0,
+  }));
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
       <h3 className="text-sm font-semibold text-gray-800 mb-4">Leads by Location</h3>

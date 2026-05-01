@@ -1,4 +1,6 @@
-import { leadsByStatus } from '@/data/mockData';
+'use client';
+
+import { useAppSelector } from '@/hooks/redux';
 
 const barColors: Record<string, string> = {
   New: 'bg-blue-500',
@@ -9,6 +11,14 @@ const barColors: Record<string, string> = {
 };
 
 export default function LeadsByStatusTable() {
+  const stats = useAppSelector((state) => state.leads.dashboardStats);
+  const total = stats?.totalLeads ?? 0;
+  const leadsByStatus = (stats?.byStatus ?? []).map((row) => ({
+    status: row._id,
+    leads: row.count,
+    percentage: total ? +((row.count / total) * 100).toFixed(1) : 0,
+  }));
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
       <h3 className="text-sm font-semibold text-gray-800 mb-4">Leads by Status</h3>
@@ -42,7 +52,7 @@ export default function LeadsByStatusTable() {
           ))}
           <tr className="border-t-2 border-gray-200">
             <td className="pt-2 text-sm font-semibold text-gray-800">Total</td>
-            <td className="pt-2 text-right text-sm font-semibold text-gray-800">1,248</td>
+            <td className="pt-2 text-right text-sm font-semibold text-gray-800">{total.toLocaleString()}</td>
             <td className="pt-2 text-right text-sm font-semibold text-gray-800">100%</td>
           </tr>
         </tbody>

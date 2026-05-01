@@ -5,13 +5,12 @@ import Link from 'next/link';
 import { ArrowLeft, Phone, Mail, Star, Edit, Trash2, Plus } from 'lucide-react';
 import { useAppSelector } from '@/hooks/redux';
 import { StatusBadge, PriorityBadge } from '@/components/ui/Badge';
-import { callLogs } from '@/data/mockData';
 import { formatDate, formatCurrency } from '@/lib/utils';
 
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const lead = useAppSelector(s => s.leads.leads.find(l => l.id === id));
-  const calls = callLogs.filter(c => c.leadId === id);
+  const calls = useAppSelector(s => s.calls.calls.filter(c => c.leadId === id));
 
   if (!lead) return (
     <div className="p-6">

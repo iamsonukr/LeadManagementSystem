@@ -1,9 +1,24 @@
-import { topServices } from '@/data/mockData';
+'use client';
+
 import { ChevronDown } from 'lucide-react';
+import { useAppSelector } from '@/hooks/redux';
 
 const barColors = ['bg-indigo-500', 'bg-blue-400', 'bg-cyan-400', 'bg-teal-400', 'bg-emerald-400', 'bg-lime-400', 'bg-amber-400', 'bg-orange-400', 'bg-rose-400', 'bg-pink-400', 'bg-gray-400'];
 
 export default function TopSourcesWidget() {
+  const leads = useAppSelector((state) => state.leads.leads);
+  const counts = leads.reduce<Record<string, number>>((acc, lead) => {
+    lead.services.forEach((service) => {
+      acc[service] = (acc[service] ?? 0) + 1;
+    });
+    return acc;
+  }, {});
+  const max = Math.max(...Object.values(counts), 1);
+  const topServices = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([service, count]) => ({ service, percentage: Math.round((count / max) * 100) }));
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">

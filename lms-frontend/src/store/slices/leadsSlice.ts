@@ -17,8 +17,15 @@ export const createLeadThunk = createAsyncThunk('leads/create', async (payload: 
   catch (err: unknown) { return rejectWithValue(err instanceof Error ? err.message : 'Failed'); }
 });
 
+export const addLead = createLeadThunk;
+
 export const updateLeadThunk = createAsyncThunk('leads/update', async ({ id, payload }: { id: string; payload: Partial<Lead> }, { rejectWithValue }) => {
   try { return await leadsService.update(id, payload); }
+  catch { return rejectWithValue('Failed to update'); }
+});
+
+export const updateLead = createAsyncThunk('leads/updateFromPayload', async (payload: Lead, { rejectWithValue }) => {
+  try { return await leadsService.update(payload.id, payload); }
   catch { return rejectWithValue('Failed to update'); }
 });
 
@@ -26,6 +33,8 @@ export const patchLeadStatus = createAsyncThunk('leads/patchStatus', async ({ id
   try { return await leadsService.updateStatus(id, status); }
   catch { return rejectWithValue('Failed'); }
 });
+
+export const updateLeadStatus = patchLeadStatus;
 
 export const deleteLeadThunk = createAsyncThunk('leads/delete', async (id: string, { rejectWithValue }) => {
   try { await leadsService.delete(id); return id; }
@@ -65,7 +74,7 @@ const leadsSlice = createSlice({
     clearError(state) { state.error = null; },
     clearSelectedLead(state) { state.selectedLead = null; state.selectedLeadCalls = []; },
     addLeadLocal(state, action: PayloadAction<Lead>) { state.leads.unshift(action.payload); },
-    updateLeadStatus(state, action: PayloadAction<{ id: string; status: LeadStatus }>) {
+    updateLeadStatusLocal(state, action: PayloadAction<{ id: string; status: LeadStatus }>) {
       const lead = state.leads.find(l => l.id === action.payload.id);
       if (lead) lead.status = action.payload.status;
     },
@@ -93,13 +102,21 @@ const leadsSlice = createSlice({
         if (s.selectedLead) s.selectedLead = a.payload;
       })
       .addCase(updateLeadThunk.rejected, (s, a) => { s.isSubmitting = false; s.error = a.payload as string; });
+    builder
+      .addCase(updateLead.pending, s => { s.isSubmitting = true; })
+      .addCase(updateLead.fulfilled, (s, a) => {
+        s.isSubmitting = false;
+        const idx = s.leads.findIndex(l => l.id === a.payload.id);
+        if (idx !== -1) s.leads[idx] = a.payload;
+        if (s.selectedLead?.id === a.payload.id) s.selectedLead = a.payload;
+      })
+      .addCase(updateLead.rejected, (s, a) => { s.isSubmitting = false; s.error = a.payload as string; });
     builder.addCase(patchLeadStatus.fulfilled, (s, a) => {
-      const apiLead = a.payload as unknown as { _id: string } & Lead;
-      const idx = s.leads.findIndex(l => (l as unknown as { _id: string })._id === apiLead._id);
+      const idx = s.leads.findIndex(l => l.id === a.payload.id);
       if (idx !== -1) s.leads[idx] = a.payload;
     });
     builder.addCase(deleteLeadThunk.fulfilled, (s, a) => {
-      s.leads = s.leads.filter(l => (l as unknown as { _id: string })._id !== a.payload);
+      s.leads = s.leads.filter(l => l.id !== a.payload);
     });
     builder
       .addCase(fetchDashboardStats.pending, s => { s.isLoading = true; })
@@ -108,5 +125,5 @@ const leadsSlice = createSlice({
   },
 });
 
-export const { setFilter, clearError, clearSelectedLead, addLeadLocal, updateLeadStatus } = leadsSlice.actions;
+export const { setFilter, clearError, clearSelectedLead, addLeadLocal, updateLeadStatusLocal } = leadsSlice.actions;
 export default leadsSlice.reducer;

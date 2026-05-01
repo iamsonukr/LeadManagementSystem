@@ -1,10 +1,13 @@
 'use client';
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { conversionRateData } from '@/data/mockData';
 import { ChevronDown } from 'lucide-react';
+import { useAppSelector } from '@/hooks/redux';
 
 export default function ConversionRateChart() {
+  const stats = useAppSelector((state) => state.leads.dashboardStats);
+  const conversionRateData = [{ date: 'Current', rate: stats?.conversionRate ?? 0 }];
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
@@ -20,7 +23,7 @@ export default function ConversionRateChart() {
           <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} domain={[0, 40]} />
           <Tooltip
             contentStyle={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 12 }}
-            formatter={(val: number) => [`${val}%`, 'Conversion Rate']}
+            formatter={(val) => [`${Number(val ?? 0)}%`, 'Conversion Rate']}
           />
           <Line type="monotone" dataKey="rate" stroke="#10B981" strokeWidth={2} dot={{ fill: '#10B981', r: 3, strokeWidth: 0 }} activeDot={{ r: 5 }} />
         </LineChart>

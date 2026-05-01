@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { setAccessToken } from '@/services/apiClient';
+import { getAccessToken, setAccessToken } from '@/services/apiClient';
 import authService, { AuthUser } from '@/services/authService';
 
 interface AuthContextValue {
@@ -24,9 +24,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── Bootstrap: try silent refresh on mount ──────────────────
   useEffect(() => {
     const bootstrap = async () => {
+      const token = getAccessToken();
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
       try {
-        const { accessToken } = await authService.refresh();
-        setAccessToken(accessToken);
         const me = await authService.getMe();
         setUser(me);
       } catch {

@@ -1,9 +1,19 @@
-import { leadFunnel } from '@/data/mockData';
+'use client';
+
+import { useAppSelector } from '@/hooks/redux';
 
 const funnelColors = ['bg-blue-500', 'bg-emerald-500', 'bg-yellow-500', 'bg-orange-500', 'bg-purple-500'];
 const funnelWidths = ['w-full', 'w-5/6', 'w-4/6', 'w-3/6', 'w-2/6'];
 
 export default function LeadFunnel() {
+  const stats = useAppSelector((state) => state.leads.dashboardStats);
+  const total = stats?.totalLeads ?? 0;
+  const leadFunnel = (stats?.byStatus ?? []).map((row) => ({
+    stage: row._id,
+    leads: row.count,
+    conversion: total ? +((row.count / total) * 100).toFixed(1) : 0,
+  }));
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
       <h3 className="text-sm font-semibold text-gray-800 mb-4">Lead Funnel</h3>

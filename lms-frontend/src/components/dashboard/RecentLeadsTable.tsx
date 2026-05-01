@@ -1,9 +1,13 @@
+'use client';
+
 import Link from 'next/link';
-import { recentLeads } from '@/data/mockData';
 import { StatusBadge } from '@/components/ui/Badge';
 import { formatRelativeTime } from '@/lib/utils';
+import { useAppSelector } from '@/hooks/redux';
 
 export default function RecentLeadsTable() {
+  const recentLeads = useAppSelector((state) => state.leads.leads.slice(0, 5));
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">

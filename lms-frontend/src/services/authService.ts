@@ -21,20 +21,19 @@ const authService = {
     return data.data;
   },
   register: async (payload: RegisterPayload): Promise<AuthResponse> => {
-    const { data } = await apiClient.post('/auth/register', payload);
+    const { data } = await apiClient.post('/users', payload);
     return data.data;
   },
-  logout: async (): Promise<void> => { await apiClient.post('/auth/logout'); },
+  logout: async (): Promise<void> => {},
   refresh: async (): Promise<{ accessToken: string }> => {
-    const { data } = await apiClient.post('/auth/refresh');
-    return data.data;
+    throw new Error('Refresh endpoint is not available');
   },
   getMe: async (): Promise<AuthUser> => {
     const { data } = await apiClient.get('/auth/me');
     return data.data;
   },
   changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
-    await apiClient.put('/auth/change-password', { currentPassword, newPassword });
+    await apiClient.patch('/users/me/password', { currentPassword, newPassword });
   },
 };
 

@@ -1,14 +1,22 @@
-import { Calendar, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
-import { followUpOverview } from '@/data/mockData';
+'use client';
 
-const items = [
-  { label: 'Total Follow Ups', value: followUpOverview.total, icon: Calendar, color: 'text-indigo-500 bg-indigo-50' },
-  { label: 'Pending', value: followUpOverview.pending, icon: Clock, color: 'text-yellow-500 bg-yellow-50' },
-  { label: 'Completed', value: followUpOverview.completed, icon: CheckCircle, color: 'text-green-500 bg-green-50' },
-  { label: 'Overdue', value: followUpOverview.overdue, icon: AlertTriangle, color: 'text-red-500 bg-red-50' },
-];
+import { Calendar, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
+import { useAppSelector } from '@/hooks/redux';
 
 export default function FollowUpOverviewWidget() {
+  const followUpOverview = useAppSelector((state) => state.leads.dashboardStats?.followUpOverview ?? {
+    total: 0,
+    pending: 0,
+    completed: 0,
+    overdue: 0,
+  });
+  const items = [
+    { label: 'Total Follow Ups', value: followUpOverview.total, icon: Calendar, color: 'text-indigo-500 bg-indigo-50' },
+    { label: 'Pending', value: followUpOverview.pending, icon: Clock, color: 'text-yellow-500 bg-yellow-50' },
+    { label: 'Completed', value: followUpOverview.completed, icon: CheckCircle, color: 'text-green-500 bg-green-50' },
+    { label: 'Overdue', value: followUpOverview.overdue, icon: AlertTriangle, color: 'text-red-500 bg-red-50' },
+  ];
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
       <h3 className="text-sm font-semibold text-gray-800 mb-4">Follow Ups Overview</h3>

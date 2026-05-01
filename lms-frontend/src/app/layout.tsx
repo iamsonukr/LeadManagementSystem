@@ -1,12 +1,11 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import ReduxProvider from '@/components/layout/ReduxProvider';
-import Sidebar from '@/components/layout/Sidebar';
-import Header from '@/components/layout/Header';
+import { AuthProvider } from '@/context/AuthContext';
 
 export const metadata: Metadata = {
   title: 'LMS — Lead Management System',
-  description: 'CRM + Client + Revenue + Call Management',
+  description: 'CRM + Lead + Call + Revenue Management',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -14,11 +13,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <ReduxProvider>
-          <Sidebar />
-          <Header />
-          <main className="ml-[220px] mt-[60px] min-h-[calc(100vh-60px)] bg-[#F8F9FC]">
+          <AuthProvider>
             {children}
-          </main>
+          </AuthProvider>
         </ReduxProvider>
       </body>
     </html>

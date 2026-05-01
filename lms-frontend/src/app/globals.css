@@ -20,6 +20,13 @@ body {
   color: #111827;
 }
 
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #F3F4F6; }
 ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }

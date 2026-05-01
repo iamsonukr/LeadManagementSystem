@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Clock, Download, Phone, Plus, Search } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
@@ -9,7 +9,7 @@ import { StatusBadge } from '@/components/ui/Badge';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { exportRowsToCsv } from '@/lib/export';
 import { formatDate, formatRelativeTime } from '@/lib/utils';
-import { addCall, deleteCall, updateCall } from '@/store/slices/callsSlice';
+import { addCall, deleteCall, fetchCalls, updateCall } from '@/store/slices/callsSlice';
 import { CallLog } from '@/types';
 
 function toCallPayload(data: CallFormData, existing?: CallLog): CallLog {
@@ -59,6 +59,10 @@ export default function CallsPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [searchVal, setSearchVal] = useState('');
   const [selectedCall, setSelectedCall] = useState<CallLog | null>(null);
+
+  useEffect(() => {
+    dispatch(fetchCalls({ limit: 100 }));
+  }, [dispatch]);
 
   const filteredCalls = useMemo(() => calls.filter((call) => {
     const q = searchVal.toLowerCase();

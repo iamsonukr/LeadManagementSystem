@@ -1,7 +1,9 @@
 'use client';
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { leadsOverTimeData, leadsBySource, leadFunnel } from '@/data/mockData';
+import { useEffect } from 'react';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { fetchDashboardStats, fetchLeads } from '@/store/slices/leadsSlice';
 
 const monthlyRevenue = [
   { month: 'Dec', revenue: 82000 }, { month: 'Jan', revenue: 95000 },
@@ -10,6 +12,29 @@ const monthlyRevenue = [
 ];
 
 export default function ReportsPage() {
+  const dispatch = useAppDispatch();
+  const leads = useAppSelector((state) => state.leads.leads);
+  const stats = useAppSelector((state) => state.leads.dashboardStats);
+  const total = stats?.totalLeads ?? 0;
+  const colors = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#6B7280'];
+  const leadsOverTimeData = Object.entries(leads.reduce<Record<string, number>>((acc, lead) => {
+    const date = new Date(lead.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    acc[date] = (acc[date] ?? 0) + 1;
+    return acc;
+  }, {})).map(([date, count]) => ({ date, leads: count }));
+  const leadsBySource = (stats?.bySource ?? []).map((row, index) => ({
+    name: row._id,
+    value: row.count,
+    percentage: total ? +((row.count / total) * 100).toFixed(1) : 0,
+    color: colors[index % colors.length],
+  }));
+  const leadFunnel = (stats?.byStatus ?? []).map((row) => ({ stage: row._id, leads: row.count }));
+
+  useEffect(() => {
+    dispatch(fetchDashboardStats());
+    dispatch(fetchLeads({ limit: 100 }));
+  }, [dispatch]);
+
   return (
     <div className="p-6 space-y-5">
       <h1 className="text-xl font-bold text-gray-900">Reports & Analytics</h1>
@@ -23,7 +48,7 @@ export default function ReportsPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-              <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} formatter={(v: number) => [`$${v.toLocaleString()}`, 'Revenue']} />
+              <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} formatter={(v) => [`$${Number(v ?? 0).toLocaleString()}`, 'Revenue']} />
               <Bar dataKey="revenue" fill="#6366F1" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

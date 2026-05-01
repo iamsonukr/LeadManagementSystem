@@ -1,91 +1,52 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+const TOKEN_KEY = 'lms_access_token';
 
-// ─── Token store (in-memory, not localStorage) ─────────────────
 let accessToken: string | null = null;
-let isRefreshing = false;
-let refreshQueue: Array<(token: string) => void> = [];
 
-export const setAccessToken = (token: string | null) => { accessToken = token; };
-export const getAccessToken = () => accessToken;
+if (typeof window !== 'undefined') {
+  accessToken = window.localStorage.getItem(TOKEN_KEY);
+}
 
-const flushQueue = (token: string) => {
-  refreshQueue.forEach(cb => cb(token));
-  refreshQueue = [];
+export const setAccessToken = (token: string | null) => {
+  accessToken = token;
+  if (typeof window === 'undefined') return;
+  if (token) window.localStorage.setItem(TOKEN_KEY, token);
+  else window.localStorage.removeItem(TOKEN_KEY);
 };
 
-// ─── Axios instance ─────────────────────────────────────────────
+export const getAccessToken = () => accessToken;
+
 const apiClient: AxiosInstance = axios.create({
   baseURL: BASE_URL,
-  withCredentials: true,          // send httpOnly refresh cookie
+  withCredentials: true,
   timeout: 15_000,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// ─── Request interceptor — attach access token ──────────────────
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     if (accessToken) {
-      config.headers['Authorization'] = `Bearer ${accessToken}`;
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
     return config;
   },
-  (err) => Promise.reject(err)
+  (err) => Promise.reject(err),
 );
 
-// ─── Response interceptor — handle 401 → refresh → retry ────────
 apiClient.interceptors.response.use(
   (res: AxiosResponse) => res,
   async (error: AxiosError) => {
-    const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
-
-    // Only attempt refresh once per request and only for 401s
-    if (
-      error.response?.status === 401 &&
-      !original._retry &&
-      !original.url?.includes('/auth/refresh') &&
-      !original.url?.includes('/auth/login')
-    ) {
-      if (isRefreshing) {
-        // Queue this request until refresh completes
-        return new Promise<AxiosResponse>((resolve, reject) => {
-          refreshQueue.push((token: string) => {
-            original.headers['Authorization'] = `Bearer ${token}`;
-            resolve(apiClient(original));
-          });
-        });
-      }
-
-      original._retry = true;
-      isRefreshing = true;
-
-      try {
-        const { data } = await axios.post(
-          `${BASE_URL}/auth/refresh`,
-          {},
-          { withCredentials: true }
-        );
-        const newToken: string = data.data.accessToken;
-        setAccessToken(newToken);
-        flushQueue(newToken);
-        original.headers['Authorization'] = `Bearer ${newToken}`;
-        return apiClient(original);
-      } catch (refreshErr) {
-        setAccessToken(null);
-        refreshQueue = [];
-        // Dispatch global logout event
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event('auth:logout'));
-        }
-        return Promise.reject(refreshErr);
-      } finally {
-        isRefreshing = false;
+    const original = error.config as InternalAxiosRequestConfig | undefined;
+    if (error.response?.status === 401 && !original?.url?.includes('/auth/login')) {
+      setAccessToken(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('auth:logout'));
       }
     }
-
     return Promise.reject(error);
-  }
+  },
 );
 
 export default apiClient;

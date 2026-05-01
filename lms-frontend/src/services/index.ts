@@ -1,27 +1,39 @@
 import apiClient from './apiClient';
-import { CallLog, Contact, Company } from '@/types';
+import { CallLog, Company, Contact, FollowUpRecord, Lead, ProjectRecord } from '@/types';
+import {
+  deriveCompaniesFromLeads,
+  normalizeCall,
+  normalizeFollowUp,
+  normalizeLead,
+  normalizeProject,
+  toPagination,
+  unwrapApi,
+} from './apiUtils';
+import leadsService from './leadsService';
 
 // ─── Calls ─────────────────────────────────────────────────────
 export const callsService = {
   getAll: async (params: Record<string, string | number> = {}): Promise<{ data: CallLog[]; pagination: unknown }> => {
     const q = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]));
     const { data } = await apiClient.get(`/calls?${q}`);
-    return { data: data.data, pagination: data.pagination };
+    const payload = unwrapApi<{ data: unknown[]; total: number; page: number; limit: number; totalPages: number }>(data);
+    const paginated = toPagination(payload);
+    return { data: paginated.data.map(normalizeCall), pagination: paginated.pagination };
   },
 
   getById: async (id: string): Promise<CallLog> => {
     const { data } = await apiClient.get(`/calls/${id}`);
-    return data.data;
+    return normalizeCall(unwrapApi<unknown>(data));
   },
 
   create: async (payload: Partial<CallLog> & { lead: string }): Promise<CallLog> => {
     const { data } = await apiClient.post('/calls', payload);
-    return data.data;
+    return normalizeCall(unwrapApi<unknown>(data));
   },
 
   update: async (id: string, payload: Partial<CallLog>): Promise<CallLog> => {
-    const { data } = await apiClient.put(`/calls/${id}`, payload);
-    return data.data;
+    const { data } = await apiClient.patch(`/calls/${id}`, payload);
+    return normalizeCall(unwrapApi<unknown>(data));
   },
 
   delete: async (id: string): Promise<void> => {
@@ -33,16 +45,80 @@ export const callsService = {
     byDirection: Array<{ _id: string; count: number }>;
     totalThisWeek: number;
   }> => {
-    const { data } = await apiClient.get('/calls/stats');
-    return data.data;
+    const { data } = await apiClient.get('/dashboard/stats');
+    const stats = unwrapApi<{ callStats: { total: number; connected: number; notAnswered: number; callbackScheduled: number } }>(data).callStats;
+    return {
+      byStatus: [
+        { _id: 'Connected', count: stats.connected },
+        { _id: 'Not Answered', count: stats.notAnswered },
+        { _id: 'Callback Scheduled', count: stats.callbackScheduled },
+      ],
+      byDirection: [],
+      totalThisWeek: stats.total,
+    };
+  },
+};
+
+export const followUpsService = {
+  getAll: async (params: Record<string, string | number> = {}): Promise<{ data: FollowUpRecord[]; pagination: unknown }> => {
+    const q = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]));
+    const { data } = await apiClient.get(`/followups?${q}`);
+    const payload = unwrapApi<{ data: unknown[]; total: number; page: number; limit: number; totalPages: number }>(data);
+    const paginated = toPagination(payload);
+    return { data: paginated.data.map(normalizeFollowUp), pagination: paginated.pagination };
+  },
+  create: async (payload: Partial<FollowUpRecord> & { lead: string }): Promise<FollowUpRecord> => {
+    const { data } = await apiClient.post('/followups', payload);
+    return normalizeFollowUp(unwrapApi<unknown>(data));
+  },
+  update: async (id: string, payload: Partial<FollowUpRecord>): Promise<FollowUpRecord> => {
+    const { data } = await apiClient.patch(`/followups/${id}`, payload);
+    return normalizeFollowUp(unwrapApi<unknown>(data));
+  },
+  updateStatus: async (id: string, status: FollowUpRecord['status']): Promise<FollowUpRecord> => {
+    const { data } = await apiClient.patch(`/followups/${id}/status`, { status });
+    return normalizeFollowUp(unwrapApi<unknown>(data));
+  },
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/followups/${id}`);
+  },
+};
+
+export const projectsService = {
+  getAll: async (params: Record<string, string | number> = {}): Promise<{ data: ProjectRecord[]; pagination: unknown }> => {
+    const q = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]));
+    const { data } = await apiClient.get(`/projects?${q}`);
+    const payload = unwrapApi<{ data: unknown[]; total: number; page: number; limit: number; totalPages: number }>(data);
+    const paginated = toPagination(payload);
+    return { data: paginated.data.map(normalizeProject), pagination: paginated.pagination };
+  },
+  create: async (payload: Partial<ProjectRecord> & { lead: string }): Promise<ProjectRecord> => {
+    const { data } = await apiClient.post('/projects', payload);
+    return normalizeProject(unwrapApi<unknown>(data));
+  },
+  update: async (id: string, payload: Partial<ProjectRecord>): Promise<ProjectRecord> => {
+    const { data } = await apiClient.patch(`/projects/${id}`, payload);
+    return normalizeProject(unwrapApi<unknown>(data));
+  },
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/projects/${id}`);
   },
 };
 
 // ─── Contacts ──────────────────────────────────────────────────
 export const contactsService = {
   getAll: async (search = ''): Promise<Contact[]> => {
-    const { data } = await apiClient.get(`/contacts?search=${search}`);
-    return data.data;
+    const { data } = await leadsService.getAll({ search, limit: 100 });
+    return data.map((lead: Lead) => ({
+      id: lead.id,
+      name: lead.name,
+      email: lead.email,
+      phone: lead.phone,
+      company: lead.company,
+      role: lead.department || 'Lead',
+      leadId: lead.id,
+      createdAt: lead.createdAt,
+    }));
   },
 
   getById: async (id: string): Promise<Contact> => {
@@ -68,8 +144,8 @@ export const contactsService = {
 // ─── Companies ─────────────────────────────────────────────────
 export const companiesService = {
   getAll: async (search = ''): Promise<Company[]> => {
-    const { data } = await apiClient.get(`/companies?search=${search}`);
-    return data.data;
+    const { data } = await leadsService.getAll({ search, limit: 100 });
+    return deriveCompaniesFromLeads(data);
   },
 
   getById: async (id: string): Promise<Company> => {

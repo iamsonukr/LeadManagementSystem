@@ -1,18 +1,22 @@
 'use client';
 
 import { Plus, Building2, Users, DollarSign, Globe } from 'lucide-react';
-import { companies } from '@/data/mockData';
 import { formatCurrency } from '@/lib/utils';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from '@/components/ui/Modal';
 import AddCompanyForm, { CompanyFormData } from '@/components/companies/AddCompanyForm';
 import { Company } from '@/types';
+import { companiesService } from '@/services';
 
 export default function CompaniesPage() {
-  const [companyList, setCompanyList] = useState<Company[]>(companies);
+  const [companyList, setCompanyList] = useState<Company[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+
+  useEffect(() => {
+    companiesService.getAll().then(setCompanyList).catch(() => setCompanyList([]));
+  }, []);
 
   const handleSaveCompany = (data: CompanyFormData) => {
     const newCompany: Company = {

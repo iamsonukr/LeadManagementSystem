@@ -1,10 +1,19 @@
 'use client';
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
-import { leadsOverTimeData } from '@/data/mockData';
 import { ChevronDown } from 'lucide-react';
+import { useAppSelector } from '@/hooks/redux';
 
 export default function LeadsOverTimeChart() {
+  const leads = useAppSelector((state) => state.leads.leads);
+  const leadsOverTimeData = Object.entries(
+    leads.reduce<Record<string, number>>((acc, lead) => {
+      const date = new Date(lead.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      acc[date] = (acc[date] ?? 0) + 1;
+      return acc;
+    }, {}),
+  ).map(([date, count]) => ({ date, leads: count }));
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">

@@ -45,4 +45,4 @@ src/
 
 ## Next: Backend ZIP
 Built with Node.js + Express + MongoDB + JWT auth.
-Replace src/data/mockData.ts with API calls.
+The frontend is wired to the Nest API through the services in `src/services`.

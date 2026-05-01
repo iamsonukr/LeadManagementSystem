@@ -72,7 +72,7 @@ export function hasProjectStage(lead: Lead) {
   return projectLeadStatuses.has(lead.status);
 }
 
-export function deriveProjectsFromLeads(leads: Lead[], projects: ProjectRecord[]) {
+export function deriveProjectsFromLeads(leads: Lead[], projects: ProjectRecord[]): ProjectRecord[] {
   return leads
     .filter(hasProjectStage)
     .map((lead) => {
@@ -85,14 +85,14 @@ export function deriveProjectsFromLeads(leads: Lead[], projects: ProjectRecord[]
         client: lead.company,
         service: lead.services.join(', ') || 'General Services',
         owner: lead.assignedTo,
-        status: 'Kickoff',
+        status: 'Kickoff' as ProjectRecord['status'],
         priority: lead.priority,
         budget: lead.leadValue || lead.budget,
         amountReceived: 0,
         startDate: lead.expectedCloseDate ?? lead.updatedAt,
         deliveryDate: undefined,
         lastMilestone: lead.nextAction || 'Awaiting kickoff planning',
-        paymentStatus: 'Advance Pending',
+        paymentStatus: 'Advance Pending' as ProjectRecord['paymentStatus'],
         source: lead.source,
       };
     });

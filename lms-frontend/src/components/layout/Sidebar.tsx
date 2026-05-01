@@ -1,12 +1,16 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, UserCircle, Building2, CheckSquare,
-  Phone, BarChart2, UserCog, Settings, Bell, CalendarClock
+  Phone, BarChart2, UserCog, Settings, Bell, CalendarClock, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '@/store';
+import { setSidebarOpen, toggleSidebar } from '@/store/slices/uiSlice';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -25,11 +29,36 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const dispatch = useDispatch();
+  const sidebarOpen = useSelector((state: RootState) => state.ui.sidebarOpen);
+
+  useEffect(() => {
+    const syncSidebarForViewport = () => {
+      dispatch(setSidebarOpen(window.innerWidth >= 768));
+    };
+
+    syncSidebarForViewport();
+    window.addEventListener('resize', syncSidebarForViewport);
+    return () => window.removeEventListener('resize', syncSidebarForViewport);
+  }, [dispatch]);
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-[220px] bg-white border-r border-gray-100 flex flex-col z-30">
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100">
+    <>
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/20 z-20 md:hidden" 
+          onClick={() => dispatch(toggleSidebar())}
+        />
+      )}
+      
+      <aside className={cn(
+        "fixed left-0 top-0 h-screen w-[220px] bg-white border-r border-gray-100 flex flex-col z-30 transition-transform duration-300 md:translate-x-0",
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        {/* Logo */}
+        <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -42,7 +71,14 @@ export default function Sidebar() {
           <div className="text-sm font-bold text-gray-900">LMS</div>
           <div className="text-[10px] text-gray-400 ">Lead Management System</div>
         </div>
-      </div>
+          </div>
+          <button 
+            className="md:hidden p-1 rounded-md text-gray-500 hover:bg-gray-100"
+            onClick={() => dispatch(toggleSidebar())}
+          >
+            <X size={18} />
+          </button>
+        </div>
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-3 overflow-y-auto">
@@ -58,6 +94,11 @@ export default function Sidebar() {
                   ? 'bg-indigo-50 text-indigo-700'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               )}
+              onClick={() => {
+                if (window.innerWidth < 768) {
+                  dispatch(toggleSidebar());
+                }
+              }}
             >
               <Icon size={17} className={active ? 'text-indigo-600' : 'text-gray-400'} />
               {label}
@@ -78,5 +119,6 @@ export default function Sidebar() {
         <Link href="/calls" className="text-xs text-indigo-500 hover:text-indigo-700 pl-1">View All</Link>
       </div>
     </aside>
+    </>
   );
 }

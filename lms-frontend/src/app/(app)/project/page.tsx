@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Download, FileText, FolderKanban, PenLine } from 'lucide-react';
 import { PriorityBadge, StatusBadge } from '@/components/ui/Badge';
@@ -12,7 +12,8 @@ import { deriveProjectsFromLeads } from '@/lib/crm';
 import { exportRowsToCsv } from '@/lib/export';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { ProjectRecord } from '@/types';
-import { upsertProject } from '@/store/slices/projectsSlice';
+import { fetchProjects, upsertProject } from '@/store/slices/projectsSlice';
+import { fetchLeads } from '@/store/slices/leadsSlice';
 
 export default function ProjectPage() {
   const dispatch = useAppDispatch();
@@ -21,6 +22,11 @@ export default function ProjectPage() {
   const projects = deriveProjectsFromLeads(leads, storedProjects);
   const [invoiceProject, setInvoiceProject] = useState<ProjectRecord | null>(null);
   const [editingProject, setEditingProject] = useState<ProjectRecord | null>(null);
+
+  useEffect(() => {
+    dispatch(fetchLeads({ limit: 100 }));
+    dispatch(fetchProjects({ limit: 100 }));
+  }, [dispatch]);
 
   const projectToFormData = (project: ProjectRecord): ProjectFormData => ({
     name: project.name,

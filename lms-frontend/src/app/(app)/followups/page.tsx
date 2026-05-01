@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Download, PenLine, Plus, Search, Trash2 } from 'lucide-react';
 import AddFollowUpForm, { FollowUpFormData } from '@/components/followups/AddFollowUpForm';
@@ -9,7 +9,8 @@ import { PriorityBadge, StatusBadge } from '@/components/ui/Badge';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { exportRowsToCsv } from '@/lib/export';
 import { formatDate } from '@/lib/utils';
-import { addFollowUp, deleteFollowUp, updateFollowUp } from '@/store/slices/followUpsSlice';
+import { addFollowUp, deleteFollowUp, fetchFollowUps, updateFollowUp } from '@/store/slices/followUpsSlice';
+import { fetchLeads } from '@/store/slices/leadsSlice';
 import { FollowUpRecord } from '@/types';
 
 function followUpToFormData(item: FollowUpRecord): FollowUpFormData {
@@ -63,6 +64,11 @@ export default function FollowUpsPage() {
   const [searchVal, setSearchVal] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingFollowUp, setEditingFollowUp] = useState<FollowUpRecord | null>(null);
+
+  useEffect(() => {
+    dispatch(fetchFollowUps({ limit: 100 }));
+    dispatch(fetchLeads({ limit: 100 }));
+  }, [dispatch]);
 
   const filtered = useMemo(() => followUps
     .filter((item) => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Download, Mail, PenLine, Phone, Plus, Search } from 'lucide-react';
 import AddLeadForm, { LeadFormData } from '@/components/leads/AddLeadForm';
@@ -10,7 +10,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { leadSourceOptions, leadStatusOptions, normalizeServices } from '@/lib/crm';
 import { exportRowsToCsv } from '@/lib/export';
 import { formatCurrency, formatDate, formatRelativeTime } from '@/lib/utils';
-import { addLead, setFilter, updateLead, updateLeadStatus } from '@/store/slices/leadsSlice';
+import { addLead, fetchLeads, setFilter, updateLead, updateLeadStatus } from '@/store/slices/leadsSlice';
 import { setAddLeadModal } from '@/store/slices/uiSlice';
 import { Lead, LeadStatus } from '@/types';
 
@@ -111,6 +111,10 @@ export default function LeadsPage() {
   const [searchVal, setSearchVal] = useState('');
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
+  useEffect(() => {
+    dispatch(fetchLeads({ limit: 100 }));
+  }, [dispatch]);
+
   const filtered = useMemo(() => leads.filter((lead) => {
     const q = searchVal.toLowerCase();
     const matchesSearch =
@@ -159,24 +163,24 @@ export default function LeadsPage() {
   };
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="space-y-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Lead Pipeline</h1>
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Lead Pipeline</h1>
           <p className="mt-1 text-sm text-gray-500">
             Standard CRM coverage means every lead has an owner, pipeline stage, value, next action, and target close date.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <button
             onClick={exportLeads}
-            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+            className="flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
           >
             <Download size={14} /> Export CSV
           </button>
           <button
             onClick={() => dispatch(setAddLeadModal(true))}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
             <Plus size={14} /> Add Lead
           </button>
@@ -209,7 +213,7 @@ export default function LeadsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-        <div className="flex min-w-72 flex-1 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+        <div className="flex w-full flex-1 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 md:min-w-72">
           <Search size={14} className="text-gray-400" />
           <input
             value={searchVal}
@@ -219,7 +223,7 @@ export default function LeadsPage() {
           />
         </div>
         <select
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 outline-none"
+          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 outline-none sm:w-auto"
           value={filters.status}
           onChange={(event) => dispatch(setFilter({ status: event.target.value }))}
         >
@@ -227,7 +231,7 @@ export default function LeadsPage() {
           {leadStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
         </select>
         <select
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 outline-none"
+          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 outline-none sm:w-auto"
           value={filters.source}
           onChange={(event) => dispatch(setFilter({ source: event.target.value }))}
         >
@@ -235,7 +239,7 @@ export default function LeadsPage() {
           {leadSourceOptions.map((source) => <option key={source} value={source}>{source}</option>)}
         </select>
         <select
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 outline-none"
+          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 outline-none sm:w-auto"
           value={filters.priority}
           onChange={(event) => dispatch(setFilter({ priority: event.target.value }))}
         >
