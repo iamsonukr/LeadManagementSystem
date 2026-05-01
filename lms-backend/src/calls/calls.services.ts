@@ -6,7 +6,7 @@ import {
 
 import { InjectModel } from '@nestjs/mongoose';
 
-import { Model, Types } from 'mongoose';
+import { Model, QueryFilter, Types } from 'mongoose';
 
 import { CallLog, CallLogDocument } from './calls.entity';
 
@@ -36,9 +36,12 @@ export class CallsService {
       limit = 10,
     } = query;
 
-    const filter: any = {};
+    const filter: QueryFilter<CallLogDocument> = {};
 
     if (lead) {
+      if (!Types.ObjectId.isValid(lead)) {
+        throw new BadRequestException('Invalid lead id');
+      }
       filter.lead = new Types.ObjectId(lead);
     }
 
@@ -103,6 +106,10 @@ export class CallsService {
   }
 
   async create(dto: CreateCallLogDto) {
+    if (!Types.ObjectId.isValid(dto.lead)) {
+      throw new BadRequestException('Invalid lead id');
+    }
+
     const createdCall = await this.callLogModel.create({
       ...dto,
       lead: new Types.ObjectId(dto.lead),
@@ -117,11 +124,14 @@ export class CallsService {
     }
 
     const cleanDto = Object.fromEntries(
-      Object.entries(dto).filter(([_, value]) => value !== undefined),
+      Object.entries(dto).filter((entry) => entry[1] !== undefined),
     );
 
     if (cleanDto.lead) {
-      cleanDto.lead = new Types.ObjectId(cleanDto.lead);
+      if (!Types.ObjectId.isValid(cleanDto.lead as string)) {
+        throw new BadRequestException('Invalid lead id');
+      }
+      cleanDto.lead = new Types.ObjectId(cleanDto.lead as string);
     }
 
     const updatedCall = await this.callLogModel

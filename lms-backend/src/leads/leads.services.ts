@@ -8,7 +8,7 @@ import { InjectModel } from '@nestjs/mongoose';
 
 import { Lead, LeadDocument } from './leads.entity';
 
-import { Model, Types } from 'mongoose';
+import { Model, QueryFilter, Types } from 'mongoose';
 
 import {
   CreateLeadDto,
@@ -39,7 +39,7 @@ export class LeadServices {
       limit = 10,
     } = query;
 
-    const filter: any = {};
+    const filter: QueryFilter<LeadDocument> = {};
 
     // Filters
     if (status) filter.status = status;
@@ -127,7 +127,7 @@ export class LeadServices {
 
     // Remove undefined fields
     const cleanDto = Object.fromEntries(
-      Object.entries(dto).filter(([_, v]) => v !== undefined),
+      Object.entries(dto).filter((entry) => entry[1] !== undefined),
     );
 
     const updatedLead = await this.leadModel.findByIdAndUpdate(

@@ -1,11 +1,11 @@
 import { PartialType } from '@nestjs/swagger';
-import { IsIn, IsString } from 'class-validator';
+import { IsEmail, IsIn, IsString } from 'class-validator';
 
 export class CreateTeamMemberDto {
   @IsString()
   fullName: string;
 
-  @IsString()
+  @IsEmail()
   email: string;
 
   @IsString()

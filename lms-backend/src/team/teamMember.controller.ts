@@ -1,8 +1,19 @@
-import { Body, Controller, Get, Param, Patch, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { TeamMemberServices } from './teamMember.services';
 import { CreateTeamMemberDto, UpdateTeamMemberDto } from './teamMember.dto';
 
 @Controller('team')
+@UseGuards(AuthGuard('jwt'))
 export class TeamMemberController {
   constructor(private readonly service: TeamMemberServices) {}
 

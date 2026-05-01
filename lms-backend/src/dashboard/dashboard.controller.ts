@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { InjectModel } from '@nestjs/mongoose';
@@ -15,6 +16,7 @@ import { Project, ProjectDocument } from '../projects/projects.entity';
 
 @ApiTags('Dashboard')
 @Controller('dashboard')
+@UseGuards(AuthGuard('jwt'))
 export class DashboardController {
   constructor(
     @InjectModel(Lead.name)
@@ -35,73 +37,83 @@ export class DashboardController {
     summary: 'Aggregated dashboard stats',
   })
   async getStats() {
-    const [leads, calls, followUps, projects] = await Promise.all([
-      this.leadModel.find(),
-      this.callModel.find(),
-      this.followUpModel.find(),
-      this.projectModel.find(),
+    const [
+      total,
+      newLeads,
+      converted,
+      revenueResult,
+      byStatusResult,
+      bySourceResult,
+      byPriorityResult,
+      followUpOverview,
+      callStats,
+      projectStatsResult,
+    ] = await Promise.all([
+      this.leadModel.countDocuments(),
+      this.leadModel.countDocuments({ status: 'New' }),
+      this.leadModel.countDocuments({ status: 'Won' }),
+      this.leadModel.aggregate<{ total: number }>([
+        { $match: { status: 'Won' } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $ifNull: ['$leadValue', 0] } },
+          },
+        },
+      ]),
+      this.leadModel.aggregate<{ _id: string; count: number }>([
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
+      this.leadModel.aggregate<{ _id: string; count: number }>([
+        { $match: { source: { $exists: true, $ne: null } } },
+        { $group: { _id: '$source', count: { $sum: 1 } } },
+      ]),
+      this.leadModel.aggregate<{ _id: string; count: number }>([
+        { $group: { _id: '$priority', count: { $sum: 1 } } },
+      ]),
+      Promise.all([
+        this.followUpModel.countDocuments(),
+        this.followUpModel.countDocuments({ status: 'Pending' }),
+        this.followUpModel.countDocuments({ status: 'Completed' }),
+        this.followUpModel.countDocuments({ status: 'Overdue' }),
+      ]),
+      Promise.all([
+        this.callModel.countDocuments(),
+        this.callModel.countDocuments({ status: 'Connected' }),
+        this.callModel.countDocuments({ status: 'Not Answered' }),
+        this.callModel.countDocuments({ status: 'Callback Scheduled' }),
+      ]),
+      this.projectModel.aggregate<{
+        total: number;
+        totalBudget: number;
+        totalReceived: number;
+      }>([
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            totalBudget: { $sum: { $ifNull: ['$budget', 0] } },
+            totalReceived: { $sum: { $ifNull: ['$amountReceived', 0] } },
+          },
+        },
+      ]),
     ]);
-
-    const total = leads.length;
-
-    const newLeads = leads.filter((l) => l.status === 'New').length;
-
-    const converted = leads.filter((l) => l.status === 'Won').length;
 
     const conversionRate =
       total > 0 ? +((converted / total) * 100).toFixed(2) : 0;
-
-    const revenue = leads
-      .filter((l) => l.status === 'Won')
-      .reduce((sum, l) => sum + Number(l.leadValue || 0), 0);
-
-    const byStatus: Record<string, number> = {};
-
-    const bySource: Record<string, number> = {};
-
-    const byPriority: Record<string, number> = {};
-
-    for (const l of leads) {
-      byStatus[l.status] = (byStatus[l.status] || 0) + 1;
-
-      if (l.source) {
-        bySource[l.source] = (bySource[l.source] || 0) + 1;
-      }
-
-      byPriority[l.priority] = (byPriority[l.priority] || 0) + 1;
-    }
-
-    const followUpOverview = {
-      total: followUps.length,
-
-      pending: followUps.filter((f) => f.status === 'Pending').length,
-
-      completed: followUps.filter((f) => f.status === 'Completed').length,
-
-      overdue: followUps.filter((f) => f.status === 'Overdue').length,
+    const revenue = revenueResult[0]?.total ?? 0;
+    const [followUpsTotal, pending, completed, overdue] = followUpOverview;
+    const [callsTotal, connected, notAnswered, callbackScheduled] = callStats;
+    const projectStats = projectStatsResult[0] ?? {
+      total: 0,
+      totalBudget: 0,
+      totalReceived: 0,
     };
 
-    const callStats = {
-      total: calls.length,
-
-      connected: calls.filter((c) => c.status === 'Connected').length,
-
-      notAnswered: calls.filter((c) => c.status === 'Not Answered').length,
-
-      callbackScheduled: calls.filter((c) => c.status === 'Callback Scheduled')
-        .length,
-    };
-
-    const projectStats = {
-      total: projects.length,
-
-      totalBudget: projects.reduce((sum, p) => sum + Number(p.budget || 0), 0),
-
-      totalReceived: projects.reduce(
-        (sum, p) => sum + Number(p.amountReceived || 0),
-        0,
-      ),
-    };
+    const toRecord = (rows: { _id: string; count: number }[]) =>
+      Object.fromEntries(
+        rows.filter((row) => row._id).map((row) => [row._id, row.count]),
+      );
 
     return {
       leads: {
@@ -110,14 +122,24 @@ export class DashboardController {
         converted,
         conversionRate,
         revenue,
-        byStatus,
-        bySource,
-        byPriority,
+        byStatus: toRecord(byStatusResult),
+        bySource: toRecord(bySourceResult),
+        byPriority: toRecord(byPriorityResult),
       },
 
-      followUpOverview,
+      followUpOverview: {
+        total: followUpsTotal,
+        pending,
+        completed,
+        overdue,
+      },
 
-      callStats,
+      callStats: {
+        total: callsTotal,
+        connected,
+        notAnswered,
+        callbackScheduled,
+      },
 
       projectStats,
     };

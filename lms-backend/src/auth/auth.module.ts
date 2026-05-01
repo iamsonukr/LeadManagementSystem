@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import type ms from 'ms';
 
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
@@ -19,14 +20,20 @@ import { AuthService } from './auth.services';
 
       inject: [ConfigService],
 
-      useFactory: (configService: ConfigService) => ({
-        secret:
-          configService.get<string>('JWT_SECRET') || 'change_me_in_production',
+      useFactory: (configService: ConfigService) => {
+        const secret = configService.get<string>('JWT_SECRET');
+        if (!secret) {
+          throw new Error('JWT_SECRET is required');
+        }
 
-        signOptions: {
-          expiresIn: '7d' as const,
-        },
-      }),
+        return {
+          secret,
+          signOptions: {
+            expiresIn:
+              configService.get<ms.StringValue>('JWT_EXPIRES_IN') || '7d',
+          },
+        };
+      },
     }),
   ],
 

@@ -7,13 +7,16 @@ import {
   Delete,
   Body,
   Param,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { CreateUserDto, UpdateUserDto, ChangePasswordDto } from './user.dto';
 import { UsersService } from './user.services';
 
 @ApiTags('Users')
 @Controller('users')
+@UseGuards(AuthGuard('jwt'))
 export class UsersController {
   constructor(private readonly service: UsersService) {}
 

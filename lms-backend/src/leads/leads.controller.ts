@@ -7,7 +7,9 @@ import {
   Patch,
   Delete,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 
 import { LeadServices } from './leads.services';
 
@@ -19,6 +21,7 @@ import {
 } from './leads.dto';
 
 @Controller('leads')
+@UseGuards(AuthGuard('jwt'))
 export class LeadController {
   constructor(private readonly service: LeadServices) {}
 

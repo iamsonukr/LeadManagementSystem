@@ -7,7 +7,9 @@ import {
   Delete,
   Param,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 
 import { CallsService } from './calls.services';
 
@@ -19,6 +21,7 @@ import {
 } from './calls.dto';
 
 @Controller('calls')
+@UseGuards(AuthGuard('jwt'))
 export class CallsController {
   constructor(private readonly service: CallsService) {}
 

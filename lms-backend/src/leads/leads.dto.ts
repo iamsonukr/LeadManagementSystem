@@ -9,7 +9,6 @@ import {
   IsDateString,
   IsIn,
   IsObject,
-  ArrayNotEmpty,
 } from 'class-validator';
 
 import { Type } from 'class-transformer';

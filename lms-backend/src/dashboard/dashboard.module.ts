@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Lead, LeadSchema } from 'src/leads/leads.entity';
+import { Lead, LeadSchema } from '../leads/leads.entity';
 
-import { CallLog, CallLogSchema } from 'src/calls/calls.entity';
+import { CallLog, CallLogSchema } from '../calls/calls.entity';
 
-import { FollowUp, FollowUpSchema } from 'src/followups/followups.entity';
+import { FollowUp, FollowUpSchema } from '../followups/followups.entity';
 
-import { Project, ProjectSchema } from 'src/projects/projects.entity';
+import { Project, ProjectSchema } from '../projects/projects.entity';
 
 import { DashboardController } from './dashboard.controller';
 

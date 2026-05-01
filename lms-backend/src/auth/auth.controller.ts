@@ -1,15 +1,13 @@
-import {
-  Controller,
-  Post,
-  Body,
-  Get,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { LoginDto } from './auth.dto';
-import { AuthService } from './auth.services';
+import { AuthenticatedUser, AuthService } from './auth.services';
+
+interface AuthenticatedRequest extends Request {
+  user: AuthenticatedUser;
+}
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -26,7 +24,7 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current authenticated user' })
-  me(@Request() req: any) {
+  me(@Req() req: AuthenticatedRequest) {
     return req.user;
   }
 }

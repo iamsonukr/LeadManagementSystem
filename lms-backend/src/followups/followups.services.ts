@@ -1,12 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model, QueryFilter, Types } from 'mongoose';
 
 import { FollowUp, FollowUpDocument } from './followups.entity';
 import {
   CreateFollowUpDto,
-  UpdateFollowUpDto,
   FollowUpFilterDto,
+  UpdateFollowUpDto,
 } from './followups.dto';
 
 @Injectable()
@@ -16,15 +20,20 @@ export class FollowupsServices {
     private followUpModel: Model<FollowUpDocument>,
   ) {}
 
-  // ✅ Create
+  private assertObjectId(id: string, label: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException(`Invalid ${label} id`);
+    }
+  }
+
   async create(dto: CreateFollowUpDto) {
+    this.assertObjectId(dto.lead, 'lead');
     return this.followUpModel.create({
       ...dto,
       lead: new Types.ObjectId(dto.lead),
     });
   }
 
-  // ✅ Get All (with filters + pagination)
   async findAll(query: FollowUpFilterDto) {
     const {
       lead,
@@ -37,23 +46,27 @@ export class FollowupsServices {
       page = 1,
       limit = 10,
     } = query;
-    const filter: any = {};
-    if (lead) filter.lead = new Types.ObjectId(lead);
+    const filter: QueryFilter<FollowUpDocument> = {};
+
+    if (lead) {
+      this.assertObjectId(lead, 'lead');
+      filter.lead = new Types.ObjectId(lead);
+    }
     if (status) filter.status = status;
     if (priority) filter.priority = priority;
     if (type) filter.type = type;
     if (owner) filter.owner = owner;
-    // 📅 Date range filter
     if (fromDate || toDate) {
       filter.dueAt = {};
       if (fromDate) filter.dueAt.$gte = new Date(fromDate);
       if (toDate) filter.dueAt.$lte = new Date(toDate);
     }
+
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
       this.followUpModel
         .find(filter)
-        .populate('lead') // 🔥 important
+        .populate('lead')
         .sort({ dueAt: 1 })
         .skip(skip)
         .limit(limit),
@@ -65,11 +78,12 @@ export class FollowupsServices {
       total,
       page,
       limit,
+      totalPages: Math.ceil(total / limit),
     };
   }
 
-  // ✅ Get One
   async findOne(id: string) {
+    this.assertObjectId(id, 'followup');
     const followup = await this.followUpModel.findById(id).populate('lead');
     if (!followup) {
       throw new NotFoundException('FollowUp not found');
@@ -77,9 +91,14 @@ export class FollowupsServices {
     return followup;
   }
 
-  // ✅ Update (partial)
   async update(id: string, dto: UpdateFollowUpDto) {
+    this.assertObjectId(id, 'followup');
     const clean = this.cleanDto(dto);
+    if (clean.lead) {
+      this.assertObjectId(clean.lead as string, 'lead');
+      clean.lead = new Types.ObjectId(clean.lead as string);
+    }
+
     const updated = await this.followUpModel.findByIdAndUpdate(
       id,
       { $set: clean },
@@ -91,8 +110,8 @@ export class FollowupsServices {
     return updated;
   }
 
-  // ✅ Update status only
   async updateStatus(id: string, status: string) {
+    this.assertObjectId(id, 'followup');
     const updated = await this.followUpModel.findByIdAndUpdate(
       id,
       { $set: { status } },
@@ -104,8 +123,8 @@ export class FollowupsServices {
     return updated;
   }
 
-  // ✅ Delete
   async remove(id: string) {
+    this.assertObjectId(id, 'followup');
     const deleted = await this.followUpModel.findByIdAndDelete(id);
 
     if (!deleted) {
@@ -115,10 +134,9 @@ export class FollowupsServices {
     return { message: 'FollowUp deleted successfully' };
   }
 
-  // 🔧 Helper: remove undefined fields
-  private cleanDto(dto: any) {
+  private cleanDto(dto: UpdateFollowUpDto) {
     return Object.fromEntries(
-      Object.entries(dto).filter(([_, v]) => v !== undefined),
+      Object.entries(dto).filter((entry) => entry[1] !== undefined),
     );
   }
 }

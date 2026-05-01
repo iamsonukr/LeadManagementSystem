@@ -2,9 +2,10 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 
 import { User, UserDocument } from './user.entity';
@@ -14,19 +15,30 @@ import { CreateUserDto, UpdateUserDto, ChangePasswordDto } from './user.dto';
 export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
+  private assertObjectId(id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid user id');
+    }
+  }
+
   async findAll() {
     return this.userModel.find().sort({ createdAt: -1 }).select('-password'); // exclude password
   }
 
   async findOne(id: string) {
+    this.assertObjectId(id);
     const user = await this.userModel.findById(id).select('-password');
 
     if (!user) throw new NotFoundException(`User ${id} not found`);
     return user;
   }
 
-  async findByEmail(email: string) {
-    return this.userModel.findOne({ email });
+  async findByEmail(email: string, includePassword = false) {
+    const query = this.userModel.findOne({ email });
+    if (includePassword) {
+      query.select('+password');
+    }
+    return query.exec();
   }
 
   async create(dto: CreateUserDto) {
@@ -42,10 +54,12 @@ export class UsersService {
       password: hashed,
     });
 
-    return user.save();
+    const savedUser = await user.save();
+    return this.findOne(savedUser.id);
   }
 
   async update(id: string, dto: UpdateUserDto) {
+    this.assertObjectId(id);
     const user = await this.userModel
       .findByIdAndUpdate(
         id,
@@ -59,6 +73,7 @@ export class UsersService {
   }
 
   async changePassword(id: string, dto: ChangePasswordDto) {
+    this.assertObjectId(id);
     const user = await this.userModel.findById(id);
     if (!user) throw new NotFoundException(`User ${id} not found`);
 
@@ -71,6 +86,7 @@ export class UsersService {
   }
 
   async remove(id: string) {
+    this.assertObjectId(id);
     const user = await this.userModel.findByIdAndDelete(id);
 
     if (!user) throw new NotFoundException(`User ${id} not found`);

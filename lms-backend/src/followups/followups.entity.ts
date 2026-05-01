@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { Lead } from 'src/leads/leads.entity';
+import { Lead } from '../leads/leads.entity';
 
 export type FollowUpDocument = FollowUp & Document;
 

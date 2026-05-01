@@ -96,7 +96,7 @@ export class ProjectsService {
     }
 
     const cleanDto = Object.fromEntries(
-      Object.entries(dto).filter(([_, value]) => value !== undefined),
+      Object.entries(dto).filter((entry) => entry[1] !== undefined),
     );
 
     if (cleanDto.lead) {

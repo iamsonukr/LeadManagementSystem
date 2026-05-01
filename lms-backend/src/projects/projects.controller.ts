@@ -7,7 +7,9 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { ProjectsService } from './projects.services';
 import {
   CreateProjectDto,
@@ -16,6 +18,7 @@ import {
 } from './projects.dto';
 
 @Controller('projects')
+@UseGuards(AuthGuard('jwt'))
 export class ProjectsController {
   constructor(private readonly service: ProjectsService) {}
 

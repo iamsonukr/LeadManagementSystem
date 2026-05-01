@@ -7,7 +7,9 @@ import {
   Patch,
   Delete,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { FollowupsServices } from './followups.services';
 import {
   CreateFollowUpDto,
@@ -17,6 +19,7 @@ import {
 } from './followups.dto';
 
 @Controller('followups')
+@UseGuards(AuthGuard('jwt'))
 export class FollowupsController {
   constructor(private readonly followupsService: FollowupsServices) {}
 

@@ -3,28 +3,23 @@ import {
   IsDateString,
   IsIn,
   IsMongoId,
+  IsNumber,
   IsOptional,
   IsString,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export const FOLLOWUP_STATUS = [
-  'New',
-  'Contacted',
-  'Qualified',
-  'Proposal Sent',
-  'Negotiation',
-  'Won',
-  'Lost',
-  'On Hold',
-  'Duplicate',
-  'Spam',
+  'Pending',
+  'Completed',
+  'Overdue',
+  'Rescheduled',
 ] as const;
 
 export type FollowUpStatus = (typeof FOLLOWUP_STATUS)[number];
 
 export class CreateFollowUpDto {
   @ApiProperty()
-  @IsOptional()
   @IsMongoId()
   lead!: string; // ObjectId
 
@@ -76,8 +71,6 @@ export class UpdateFollowUpStatusDto {
   status!: string;
 }
 
-import { IsNumber } from 'class-validator';
-
 export class FollowUpFilterDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -116,11 +109,13 @@ export class FollowUpFilterDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   page?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   limit?: number;
 }
