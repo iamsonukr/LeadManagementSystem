@@ -20,6 +20,7 @@ import {
 import { Project, ProjectDocument } from '../projects/projects.entity';
 import { FollowUp, FollowUpDocument } from '../followups/followups.entity';
 import { CallLog, CallLogDocument } from '../calls/calls.entity';
+import { assertDateIsTodayOrFuture } from '../common/date-validation';
 
 const LEAD_NEXT_FOLLOWUP_SOURCE = 'lead-next-followup';
 const LEAD_STATUS_FOLLOWUP_SOURCE = 'lead-status-followup';
@@ -152,6 +153,8 @@ export class LeadServices {
   // =========================================
 
   async create(dto: CreateLeadDto) {
+    assertDateIsTodayOrFuture(dto.nextFollowUp, 'Next follow-up date');
+
     // Duplicate email check
 
     const existingLead = await this.leadModel.findOne({
@@ -183,6 +186,8 @@ export class LeadServices {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid lead id');
     }
+    assertDateIsTodayOrFuture(dto.nextFollowUp, 'Next follow-up date');
+
     const existingProject = await this.projectModel.findOne({
       lead: id,
     });

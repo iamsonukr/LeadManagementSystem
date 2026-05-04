@@ -15,9 +15,15 @@ import { cn } from '@/lib/utils';
 export interface TeamFormData {
     fullName: string;
     email: string;
+    phone: string;
+    employeeId: string;
     role: string;
     department: string;
+    employmentType: string;
     joiningDate: string;
+    workLocation: string;
+    reportingManager: string;
+    skills: string;
     currentProject: string;
     status: string;
 }
@@ -25,9 +31,15 @@ export interface TeamFormData {
 const defaultForm: TeamFormData = {
     fullName: '',
     email: '',
+    phone: '',
+    employeeId: '',
     role: '',
     department: '',
+    employmentType: 'Full-time',
     joiningDate: '',
+    workLocation: '',
+    reportingManager: '',
+    skills: '',
     currentProject: '',
     status: 'Active',
 };
@@ -159,6 +171,22 @@ export default function AddTeamMemberForm({
                             />
                         </Field>
 
+                        <Field label="Phone" required>
+                            <input
+                                className={inputCls}
+                                value={form.phone}
+                                onChange={set('phone')}
+                            />
+                        </Field>
+
+                        <Field label="Employee ID" required>
+                            <input
+                                className={inputCls}
+                                value={form.employeeId}
+                                onChange={set('employeeId')}
+                            />
+                        </Field>
+
                         <Field label="Role" required>
                             <input
                                 className={inputCls}
@@ -186,12 +214,49 @@ export default function AddTeamMemberForm({
                             </select>
                         </Field>
 
+                        <Field label="Employment Type" required>
+                            <select
+                                className={selectCls}
+                                value={form.employmentType}
+                                onChange={set('employmentType')}
+                            >
+                                {['Full-time', 'Part-time', 'Contract', 'Intern'].map((type) => (
+                                    <option key={type}>{type}</option>
+                                ))}
+                            </select>
+                        </Field>
+
                         <Field label="Joining Date">
                             <input
                                 type="date"
                                 className={inputCls}
                                 value={form.joiningDate}
                                 onChange={set('joiningDate')}
+                            />
+                        </Field>
+
+                        <Field label="Work Location" required>
+                            <input
+                                className={inputCls}
+                                value={form.workLocation}
+                                onChange={set('workLocation')}
+                            />
+                        </Field>
+
+                        <Field label="Reporting Manager">
+                            <input
+                                className={inputCls}
+                                value={form.reportingManager}
+                                onChange={set('reportingManager')}
+                            />
+                        </Field>
+
+                        <Field label="Skills">
+                            <input
+                                className={inputCls}
+                                placeholder="Sales, CRM, Support"
+                                value={form.skills}
+                                onChange={set('skills')}
                             />
                         </Field>
 

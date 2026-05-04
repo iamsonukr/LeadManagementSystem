@@ -12,6 +12,7 @@ import {
   FollowUpFilterDto,
   UpdateFollowUpDto,
 } from './followups.dto';
+import { assertDateIsTodayOrFuture } from '../common/date-validation';
 
 @Injectable()
 export class FollowupsServices {
@@ -28,6 +29,8 @@ export class FollowupsServices {
 
   async create(dto: CreateFollowUpDto) {
     this.assertObjectId(dto.lead, 'lead');
+    assertDateIsTodayOrFuture(dto.dueAt, 'Follow-up date');
+
     const followup = await this.followUpModel.create({
       ...dto,
       lead: new Types.ObjectId(dto.lead),
@@ -95,6 +98,8 @@ export class FollowupsServices {
 
   async update(id: string, dto: UpdateFollowUpDto) {
     this.assertObjectId(id, 'followup');
+    assertDateIsTodayOrFuture(dto.dueAt, 'Follow-up date');
+
     const clean = this.cleanDto(dto);
     if (clean.lead) {
       this.assertObjectId(clean.lead as string, 'lead');

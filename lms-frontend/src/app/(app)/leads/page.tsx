@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Download, Mail, PenLine, Phone, Plus, Search, Trash2 } from 'lucide-react';
 import AddLeadForm, { LeadFormData } from '@/components/leads/AddLeadForm';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Modal from '@/components/ui/Modal';
 import { PriorityBadge } from '@/components/ui/Badge';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
@@ -11,6 +12,7 @@ import { leadSourceOptions, leadStatusOptions, normalizeServices } from '@/lib/c
 import { exportRowsToCsv } from '@/lib/export';
 import { formatCurrency, formatDate, formatRelativeTime } from '@/lib/utils';
 import { addLead, deleteLeadThunk, fetchLeads, setFilter, updateLead, updateLeadStatus } from '@/store/slices/leadsSlice';
+import { fetchTeamMembers } from '@/store/slices/teamMembersSlice';
 import { setAddLeadModal } from '@/store/slices/uiSlice';
 import { Lead, LeadStatus } from '@/types';
 
@@ -107,12 +109,17 @@ function leadToFormData(lead: Lead): LeadFormData {
 export default function LeadsPage() {
   const dispatch = useAppDispatch();
   const { leads, filters, error, isSubmitting } = useAppSelector((state) => state.leads);
+  const teamMemberNames = useAppSelector((state) =>
+    state.teamMembers.items.filter((member) => member.status === 'Active').map((member) => member.fullName),
+  );
   const addLeadOpen = useAppSelector((state) => state.ui.addLeadModalOpen);
   const [searchVal, setSearchVal] = useState('');
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [deletingLead, setDeletingLead] = useState<Lead | null>(null);
 
   useEffect(() => {
     dispatch(fetchLeads({ limit: 100 }));
+    dispatch(fetchTeamMembers());
   }, [dispatch]);
 
   const filtered = useMemo(() => leads.filter((lead) => {
@@ -162,19 +169,10 @@ export default function LeadsPage() {
     setEditingLead(null);
   };
 
-  const handleDeleteLead = (lead: Lead) => {
-    if (lead.status === 'Won') {
-      window.alert('Won leads cannot be deleted.');
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Delete ${lead.name}? This is permanent. Leads with projects, follow-ups, or call logs will be blocked by the backend.`,
-    );
-
-    if (confirmed) {
-      dispatch(deleteLeadThunk(lead.id));
-    }
+  const handleDeleteLead = () => {
+    if (!deletingLead) return;
+    dispatch(deleteLeadThunk(deletingLead.id));
+    setDeletingLead(null);
   };
 
   return (
@@ -364,7 +362,7 @@ export default function LeadsPage() {
                         <Mail size={14} />
                       </a>
                       <button
-                        onClick={() => handleDeleteLead(lead)}
+                        onClick={() => setDeletingLead(lead)}
                         disabled={lead.status === 'Won' || isSubmitting}
                         className={`flex h-8 w-8 items-center justify-center rounded-lg ${
                           lead.status === 'Won'
@@ -393,7 +391,7 @@ export default function LeadsPage() {
       </div>
 
       <Modal open={addLeadOpen} onClose={() => dispatch(setAddLeadModal(false))} title="" subtitle="" size="2xl">
-        <AddLeadForm onSave={handleSaveLead} onReset={() => dispatch(setAddLeadModal(false))} />
+        <AddLeadForm onSave={handleSaveLead} onReset={() => dispatch(setAddLeadModal(false))} teamMembers={teamMemberNames} />
       </Modal>
 
       <Modal open={!!editingLead} onClose={() => setEditingLead(null)} title="" subtitle="" size="2xl">
@@ -403,9 +401,24 @@ export default function LeadsPage() {
             initialData={leadToFormData(editingLead)}
             onSave={handleUpdateLead}
             onReset={() => setEditingLead(null)}
+            teamMembers={teamMemberNames}
           />
         )}
       </Modal>
+
+      <ConfirmDialog
+        open={!!deletingLead}
+        title="Delete Lead"
+        description={
+          deletingLead?.status === 'Won'
+            ? 'Won leads cannot be deleted. The backend also blocks leads linked to projects, follow-ups, or call logs.'
+            : `Delete ${deletingLead?.name ?? 'this lead'}? This is permanent. Leads with projects, follow-ups, or call logs will be blocked by the backend.`
+        }
+        confirmLabel={deletingLead?.status === 'Won' ? 'Blocked' : 'Delete'}
+        isWorking={isSubmitting}
+        onConfirm={deletingLead?.status === 'Won' ? () => setDeletingLead(null) : handleDeleteLead}
+        onClose={() => setDeletingLead(null)}
+      />
     </div>
   );
 }

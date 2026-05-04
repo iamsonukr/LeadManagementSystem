@@ -62,13 +62,20 @@ function Field({ label, required, children }: { label: string; required?: boolea
 const inputCls =
   'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 bg-white';
 
+function getTodayDateInputValue() {
+  const today = new Date();
+  today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+  return today.toISOString().slice(0, 10);
+}
+
 interface Props {
   onSave: (data: CallFormData) => void;
   initialData?: Partial<CallFormData>;
   mode?: 'add' | 'edit';
+  teamMembers?: string[];
 }
 
-export default function LogCallForm({ onSave, initialData, mode = 'add' }: Props) {
+export default function LogCallForm({ onSave, initialData, mode = 'add', teamMembers = [] }: Props) {
   const [form, setForm] = useState<CallFormData>({
     ...defaultForm,
     callDate: new Date().toISOString().slice(0, 16),
@@ -76,6 +83,8 @@ export default function LogCallForm({ onSave, initialData, mode = 'add' }: Props
   });
 
   const isEdit = mode === 'edit';
+  const todayDate = getTodayDateInputValue();
+  const todayDateTimeMin = `${todayDate}T00:00`;
 
   const set = (key: keyof CallFormData) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -85,6 +94,15 @@ export default function LogCallForm({ onSave, initialData, mode = 'add' }: Props
 
   const handleReset = () => {
     setForm({ ...defaultForm, callDate: new Date().toISOString().slice(0, 16), ...initialData });
+  };
+
+  const handleSave = () => {
+    if (form.followUpDate && form.followUpDate.slice(0, 10) < todayDate) {
+      alert('Next follow-up date cannot be in the past.');
+      return;
+    }
+
+    onSave(form);
   };
 
   return (
@@ -114,7 +132,7 @@ export default function LogCallForm({ onSave, initialData, mode = 'add' }: Props
           </button>
           <button
             type="button"
-            onClick={() => onSave(form)}
+            onClick={handleSave}
             className="flex items-center gap-1.5 px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
           >
             <Save size={14} /> {isEdit ? 'Update' : 'Save'}
@@ -133,7 +151,10 @@ export default function LogCallForm({ onSave, initialData, mode = 'add' }: Props
               <input className={inputCls} value={form.leadCompany} onChange={set('leadCompany')} />
             </Field>
             <Field label="Called By" required>
-              <input className={inputCls} value={form.calledBy} onChange={set('calledBy')} />
+              <select className={inputCls} value={form.calledBy} onChange={set('calledBy')}>
+                <option value="">Select team member</option>
+                {teamMembers.map((member) => <option key={member} value={member}>{member}</option>)}
+              </select>
             </Field>
             <Field label="Status" required>
               <select className={inputCls} value={form.status} onChange={set('status')}>
@@ -165,7 +186,7 @@ export default function LogCallForm({ onSave, initialData, mode = 'add' }: Props
               <input type="date" className={inputCls} value={form.callbackDate} onChange={set('callbackDate')} />
             </Field>
             <Field label="Next Follow-Up">
-              <input type="datetime-local" className={inputCls} value={form.followUpDate} onChange={set('followUpDate')} />
+              <input type="datetime-local" min={todayDateTimeMin} className={inputCls} value={form.followUpDate} onChange={set('followUpDate')} />
             </Field>
             <Field label="Things Discussed">
               <textarea className={cn(inputCls, 'h-24 resize-none')} value={form.discussionPoints} onChange={set('discussionPoints')} />

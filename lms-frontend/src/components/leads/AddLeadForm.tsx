@@ -48,16 +48,24 @@ function Field({ label, required, children }: { label: string; required?: boolea
 const inputCls = "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 placeholder:text-gray-300 bg-white transition-all";
 const selectCls = "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 bg-white text-gray-600 appearance-none cursor-pointer";
 
+function getTodayDateInputValue() {
+  const today = new Date();
+  today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+  return today.toISOString().slice(0, 10);
+}
+
 interface AddLeadFormProps {
   onSave: (data: LeadFormData) => void;
   onReset: () => void;
   initialData?: Partial<LeadFormData>;
   mode?: 'add' | 'edit';
+  teamMembers?: string[];
 }
 
-export default function AddLeadForm({ onSave, onReset, initialData, mode = 'add' }: AddLeadFormProps) {
+export default function AddLeadForm({ onSave, onReset, initialData, mode = 'add', teamMembers = [] }: AddLeadFormProps) {
   const [form, setForm] = useState<LeadFormData>({ ...defaultForm, ...initialData });
   const isEdit = mode === 'edit';
+  const todayDate = getTodayDateInputValue();
 
   const set = (key: keyof LeadFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const val = e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value;
@@ -74,6 +82,15 @@ export default function AddLeadForm({ onSave, onReset, initialData, mode = 'add'
   };
 
   const handleReset = () => { setForm({ ...defaultForm, ...initialData }); onReset(); };
+
+  const handleSave = () => {
+    if (form.followUpDate && form.followUpDate < todayDate) {
+      alert('Next follow-up date cannot be in the past.');
+      return;
+    }
+
+    onSave(form);
+  };
 
   return (
     <div className="space-y-6">
@@ -92,7 +109,7 @@ export default function AddLeadForm({ onSave, onReset, initialData, mode = 'add'
           <button onClick={handleReset} className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
             <X size={14} /> {isEdit ? 'Cancel' : 'Reset'}
           </button>
-          <button onClick={() => onSave(form)} className="flex items-center gap-1.5 px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm">
+          <button onClick={handleSave} className="flex items-center gap-1.5 px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm">
             <Save size={14} /> {isEdit ? 'Update Lead' : 'Save Lead'}
           </button>
         </div>
@@ -291,12 +308,12 @@ export default function AddLeadForm({ onSave, onReset, initialData, mode = 'add'
         <div className="bg-gray-50/50 rounded-xl p-4 border border-gray-100">
           <SectionTitle icon={<Calendar size={14} />} title="Follow Up & Assignment" />
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Next Follow-up Date"><input className={inputCls} type="date" value={form.followUpDate} onChange={set('followUpDate')} /></Field>
+            <Field label="Next Follow-up Date"><input className={inputCls} type="date" min={todayDate} value={form.followUpDate} onChange={set('followUpDate')} /></Field>
             <Field label="Follow-up Time"><input className={inputCls} type="time" value={form.followUpTime} onChange={set('followUpTime')} /></Field>
             <Field label="Assigned To" required>
               <select className={selectCls} value={form.assignedTo} onChange={set('assignedTo')}>
                 <option value="">Select team member</option>
-                {['John Doe', 'Rohit Sharma', 'Mike Johnson', 'Ravi Kumar'].map(m => <option key={m}>{m}</option>)}
+                {teamMembers.map(m => <option key={m}>{m}</option>)}
               </select>
             </Field>
             <Field label="Department">

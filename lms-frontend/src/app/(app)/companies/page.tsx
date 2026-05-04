@@ -4,6 +4,7 @@ import { Plus, Building2, Users, DollarSign, Globe } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import Modal from '@/components/ui/Modal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import AddCompanyForm, { CompanyFormData } from '@/components/companies/AddCompanyForm';
 import { Company } from '@/types';
 import { companiesService } from '@/services';
@@ -13,6 +14,7 @@ export default function CompaniesPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [deletingCompany, setDeletingCompany] = useState<Company | null>(null);
 
   useEffect(() => {
     companiesService.getAll().then(setCompanyList).catch(() => setCompanyList([]));
@@ -45,10 +47,10 @@ export default function CompaniesPage() {
     }
   };
 
-  const handleDeleteCompany = (companyId: string) => {
-    if (confirm('Are you sure you want to delete this company?')) {
-      setCompanyList(prev => prev.filter(c => c.id !== companyId));
-    }
+  const handleDeleteCompany = () => {
+    if (!deletingCompany) return;
+    setCompanyList(prev => prev.filter(c => c.id !== deletingCompany.id));
+    setDeletingCompany(null);
   };
 
   return (
@@ -117,7 +119,7 @@ export default function CompaniesPage() {
                     <span className="text-gray-300 mx-1">|</span>
                     <button 
                       className="text-red-600 hover:text-red-800 text-sm font-medium"
-                      onClick={() => handleDeleteCompany(co.id)}
+                      onClick={() => setDeletingCompany(co)}
                     >
                       Delete
                     </button>
@@ -139,6 +141,13 @@ export default function CompaniesPage() {
           mode="edit" 
         />
       </Modal>
+      <ConfirmDialog
+        open={!!deletingCompany}
+        title="Delete Company"
+        description={`Delete ${deletingCompany?.name ?? 'this company'} from this derived company list?`}
+        onConfirm={handleDeleteCompany}
+        onClose={() => setDeletingCompany(null)}
+      />
     </div>
   );
 }

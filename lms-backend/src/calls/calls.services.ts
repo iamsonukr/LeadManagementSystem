@@ -10,6 +10,7 @@ import { Model, QueryFilter, Types } from 'mongoose';
 
 import { CallLog, CallLogDocument } from './calls.entity';
 import { FollowUp, FollowUpDocument } from '../followups/followups.entity';
+import { assertDateIsTodayOrFuture } from '../common/date-validation';
 
 import {
   CreateCallLogDto,
@@ -113,6 +114,7 @@ export class CallsService {
     if (!Types.ObjectId.isValid(dto.lead)) {
       throw new BadRequestException('Invalid lead id');
     }
+    assertDateIsTodayOrFuture(dto.followUpDate, 'Next follow-up date');
 
     const createdCall = await this.callLogModel.create({
       ...dto,
@@ -129,6 +131,7 @@ export class CallsService {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid call log id');
     }
+    assertDateIsTodayOrFuture(dto.followUpDate, 'Next follow-up date');
 
     const cleanDto = Object.fromEntries(
       Object.entries(dto).filter((entry) => entry[1] !== undefined),

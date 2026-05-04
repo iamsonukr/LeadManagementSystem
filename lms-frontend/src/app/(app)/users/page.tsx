@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Modal from "@/components/ui/Modal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import AddUserForm, { UserFormData } from "@/components/users/AddUserForm";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import {
@@ -42,6 +43,7 @@ export default function UsersPage() {
   const { items: users, isLoading, isSubmitting, error } = useAppSelector((state) => state.users);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
+  const [deletingUser, setDeletingUser] = useState<UserRecord | null>(null);
 
   useEffect(() => {
     dispatch(fetchUsers());
@@ -57,17 +59,18 @@ export default function UsersPage() {
     setSelectedUser(null);
   };
 
-  const handleDeleteUser = (userId: string) => {
-    if (confirm("Delete this user?")) {
-      dispatch(deleteUser(userId));
-    }
+  const handleDeleteUser = () => {
+    if (!deletingUser) return;
+    dispatch(deleteUser(deletingUser.id));
+    setDeletingUser(null);
   };
 
   return (
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Users</h1>
+          <h1 className="text-xl font-bold text-gray-900">Dashboard Users</h1>
+          <p className="mt-1 text-sm text-gray-500">Login accounts for dashboard access. Assignable staff are managed in Team.</p>
           {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
         </div>
         <button
@@ -83,7 +86,7 @@ export default function UsersPage() {
           <table className="w-full min-w-[900px]">
             <thead className="bg-gray-50/60 border-b border-gray-100">
               <tr>
-                {["Name", "Role", "Email", "Department", "Status", "Assigned Leads", "Actions"].map(h => (
+                {["Name", "Access Role", "Email", "Department", "Status", "Lead Count", "Actions"].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -119,7 +122,7 @@ export default function UsersPage() {
                       <span className="text-gray-300 mx-1">|</span>
                       <button
                         className="text-red-600 hover:text-red-800 text-sm font-medium"
-                        onClick={() => handleDeleteUser(u.id)}
+                        onClick={() => setDeletingUser(u)}
                       >
                         Delete
                       </button>
@@ -167,6 +170,14 @@ export default function UsersPage() {
           />
         )}
       </Modal>
+      <ConfirmDialog
+        open={!!deletingUser}
+        title="Delete Dashboard User"
+        description={`Delete ${deletingUser?.name ?? 'this user'}'s dashboard access? This does not remove any Team member record or assigned lead ownership.`}
+        isWorking={isSubmitting}
+        onConfirm={handleDeleteUser}
+        onClose={() => setDeletingUser(null)}
+      />
     </div>
   );
 }

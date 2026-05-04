@@ -135,9 +135,15 @@ export interface TeamMemberRecord {
   id: string;
   fullName: string;
   email: string;
+  phone: string;
+  employeeId: string;
   role: string;
   department: string;
+  employmentType: 'Full-time' | 'Part-time' | 'Contract' | 'Intern';
   joiningDate: string;
+  workLocation: string;
+  reportingManager: string;
+  skills: string[];
   currentProject: string;
   status: 'Active' | 'Inactive' | 'On Leave' | 'Resigned';
   createdAt: string;

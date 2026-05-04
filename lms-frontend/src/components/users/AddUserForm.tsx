@@ -90,7 +90,7 @@ export default function AddUserForm({ onSave, onClose, initialData, mode = 'add'
               {isEdit ? 'Edit User' : 'Add User'}
             </h2>
             <p className="text-xs text-gray-500">
-              {isEdit ? 'Update user profile' : 'Add a new system user'}
+              {isEdit ? 'Update dashboard access' : 'Add a new dashboard user'}
             </p>
           </div>
         </div>
@@ -148,7 +148,7 @@ export default function AddUserForm({ onSave, onClose, initialData, mode = 'add'
             <Field label="Phone">
               <input className={inputCls} value={form.phone} onChange={set('phone')} />
             </Field>
-            <Field label="Assigned Leads">
+            <Field label="Lead Count">
               <input type="number" min="0" className={inputCls} value={form.leads} onChange={set('leads')} />
             </Field>
             <Field label="Status">

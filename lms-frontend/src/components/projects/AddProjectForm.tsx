@@ -60,9 +60,10 @@ interface Props {
   onClose: () => void;
   initialData?: Partial<ProjectFormData>;
   mode?: 'add' | 'edit';
+  teamMembers?: string[];
 }
 
-export default function AddProjectForm({ onSave, onClose, initialData, mode = 'edit' }: Props) {
+export default function AddProjectForm({ onSave, onClose, initialData, mode = 'edit', teamMembers = [] }: Props) {
   const [form, setForm] = useState<ProjectFormData>({ ...defaultForm, ...initialData });
   const isEdit = mode === 'edit';
 
@@ -107,7 +108,10 @@ export default function AddProjectForm({ onSave, onClose, initialData, mode = 'e
               <input className={inputCls} value={form.service} onChange={set('service')} />
             </Field>
             <Field label="Owner" required>
-              <input className={inputCls} value={form.owner} onChange={set('owner')} />
+              <select className={inputCls} value={form.owner} onChange={set('owner')}>
+                <option value="">Select team member</option>
+                {teamMembers.map((member) => <option key={member} value={member}>{member}</option>)}
+              </select>
             </Field>
             <Field label="Latest Milestone" required>
               <textarea className={`${inputCls} h-24 resize-none`} value={form.lastMilestone} onChange={set('lastMilestone')} />

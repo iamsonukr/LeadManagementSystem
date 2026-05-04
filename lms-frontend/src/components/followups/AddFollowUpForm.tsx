@@ -32,6 +32,12 @@ const defaultForm: FollowUpFormData = {
 
 const inputCls = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300';
 
+function getTodayDateInputValue() {
+  const today = new Date();
+  today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+  return today.toISOString().slice(0, 10);
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -46,19 +52,31 @@ interface Props {
   onClose: () => void;
   initialData?: Partial<FollowUpFormData>;
   mode?: 'add' | 'edit';
+  teamMembers?: string[];
 }
 
-export default function AddFollowUpForm({ onSave, onClose, initialData, mode = 'add' }: Props) {
+export default function AddFollowUpForm({ onSave, onClose, initialData, mode = 'add', teamMembers = [] }: Props) {
   const [form, setForm] = useState<FollowUpFormData>({
     ...defaultForm,
     dueAt: new Date().toISOString().slice(0, 16),
     ...initialData,
   });
+  const todayDate = getTodayDateInputValue();
+  const todayDateTimeMin = `${todayDate}T00:00`;
 
   const set = (key: keyof FollowUpFormData) =>
     (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
       setForm((prev) => ({ ...prev, [key]: event.target.value }));
     };
+
+  const handleSave = () => {
+    if (form.dueAt && form.dueAt.slice(0, 10) < todayDate) {
+      alert('Follow-up date cannot be in the past.');
+      return;
+    }
+
+    onSave(form);
+  };
 
   return (
     <div className="space-y-6">
@@ -76,7 +94,7 @@ export default function AddFollowUpForm({ onSave, onClose, initialData, mode = '
           <button onClick={onClose} className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
             <X size={14} /> Cancel
           </button>
-          <button onClick={() => onSave(form)} className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700">
+          <button onClick={handleSave} className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700">
             <Save size={14} /> Save
           </button>
         </div>
@@ -96,10 +114,13 @@ export default function AddFollowUpForm({ onSave, onClose, initialData, mode = '
               <input className={inputCls} value={form.company} onChange={set('company')} />
             </Field>
             <Field label="Owner">
-              <input className={inputCls} value={form.owner} onChange={set('owner')} />
+              <select className={inputCls} value={form.owner} onChange={set('owner')}>
+                <option value="">Select team member</option>
+                {teamMembers.map((member) => <option key={member} value={member}>{member}</option>)}
+              </select>
             </Field>
             <Field label="Due At">
-              <input type="datetime-local" className={inputCls} value={form.dueAt} onChange={set('dueAt')} />
+              <input type="datetime-local" min={todayDateTimeMin} className={inputCls} value={form.dueAt} onChange={set('dueAt')} />
             </Field>
           </div>
         </div>

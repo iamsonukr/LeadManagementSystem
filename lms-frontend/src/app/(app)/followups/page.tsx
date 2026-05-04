@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Download, PenLine, Plus, Search, Trash2 } from 'lucide-react';
 import AddFollowUpForm, { FollowUpFormData } from '@/components/followups/AddFollowUpForm';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Modal from '@/components/ui/Modal';
 import { PriorityBadge, StatusBadge } from '@/components/ui/Badge';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
@@ -11,6 +12,7 @@ import { exportRowsToCsv } from '@/lib/export';
 import { formatDate } from '@/lib/utils';
 import { addFollowUp, deleteFollowUp, fetchFollowUps, updateFollowUp } from '@/store/slices/followUpsSlice';
 import { fetchLeads } from '@/store/slices/leadsSlice';
+import { fetchTeamMembers } from '@/store/slices/teamMembersSlice';
 import { FollowUpRecord } from '@/types';
 
 function followUpToFormData(item: FollowUpRecord): FollowUpFormData {
@@ -61,13 +63,18 @@ export default function FollowUpsPage() {
   const dispatch = useAppDispatch();
   const followUps = useAppSelector((state) => state.followUps.items);
   const leads = useAppSelector((state) => state.leads.leads);
+  const teamMemberNames = useAppSelector((state) =>
+    state.teamMembers.items.filter((member) => member.status === 'Active').map((member) => member.fullName),
+  );
   const [searchVal, setSearchVal] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingFollowUp, setEditingFollowUp] = useState<FollowUpRecord | null>(null);
+  const [deletingFollowUp, setDeletingFollowUp] = useState<FollowUpRecord | null>(null);
 
   useEffect(() => {
     dispatch(fetchFollowUps({ limit: 100 }));
     dispatch(fetchLeads({ limit: 100 }));
+    dispatch(fetchTeamMembers());
   }, [dispatch]);
 
   const filtered = useMemo(() => followUps
@@ -113,6 +120,12 @@ export default function FollowUpsPage() {
     if (!editingFollowUp) return;
     dispatch(updateFollowUp(toFollowUpPayload(data, editingFollowUp)));
     setEditingFollowUp(null);
+  };
+
+  const handleDeleteFollowUp = () => {
+    if (!deletingFollowUp) return;
+    dispatch(deleteFollowUp(deletingFollowUp.id));
+    setDeletingFollowUp(null);
   };
 
   const defaultLead = leads[0];
@@ -206,7 +219,7 @@ export default function FollowUpsPage() {
                       <button onClick={() => setEditingFollowUp(item)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100">
                         <PenLine size={14} />
                       </button>
-                      <button onClick={() => dispatch(deleteFollowUp(item.id))} className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100">
+                      <button onClick={() => setDeletingFollowUp(item)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100">
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -226,7 +239,7 @@ export default function FollowUpsPage() {
       </div>
 
       <Modal open={isAddOpen} onClose={() => setIsAddOpen(false)} title="" subtitle="" size="lg">
-        <AddFollowUpForm onSave={handleAddFollowUp} onClose={() => setIsAddOpen(false)} initialData={initialAddData} />
+        <AddFollowUpForm onSave={handleAddFollowUp} onClose={() => setIsAddOpen(false)} initialData={initialAddData} teamMembers={teamMemberNames} />
       </Modal>
 
       <Modal open={!!editingFollowUp} onClose={() => setEditingFollowUp(null)} title="" subtitle="" size="lg">
@@ -236,9 +249,17 @@ export default function FollowUpsPage() {
             initialData={followUpToFormData(editingFollowUp)}
             onSave={handleUpdateFollowUp}
             onClose={() => setEditingFollowUp(null)}
+            teamMembers={teamMemberNames}
           />
         )}
       </Modal>
+      <ConfirmDialog
+        open={!!deletingFollowUp}
+        title="Delete Follow-Up"
+        description={`Delete this follow-up for ${deletingFollowUp?.leadName ?? 'this lead'}?`}
+        onConfirm={handleDeleteFollowUp}
+        onClose={() => setDeletingFollowUp(null)}
+      />
     </div>
   );
 }

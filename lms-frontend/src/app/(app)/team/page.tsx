@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AddTeamMemberForm, { TeamFormData } from "@/components/team/AddTeamMember";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import Modal from "@/components/ui/Modal";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import {
@@ -26,9 +27,15 @@ function memberToFormData(member: TeamMemberRecord): TeamFormData {
   return {
     fullName: member.fullName,
     email: member.email,
+    phone: member.phone,
+    employeeId: member.employeeId,
     role: member.role,
     department: member.department,
+    employmentType: member.employmentType,
     joiningDate: member.joiningDate,
+    workLocation: member.workLocation,
+    reportingManager: member.reportingManager,
+    skills: member.skills.join(", "),
     currentProject: member.currentProject,
     status: member.status,
   };
@@ -38,9 +45,15 @@ function formToMemberPayload(data: TeamFormData): Omit<TeamMemberRecord, "id" | 
   return {
     fullName: data.fullName,
     email: data.email,
+    phone: data.phone,
+    employeeId: data.employeeId,
     role: data.role,
     department: data.department,
+    employmentType: data.employmentType as TeamMemberRecord["employmentType"],
     joiningDate: data.joiningDate,
+    workLocation: data.workLocation,
+    reportingManager: data.reportingManager,
+    skills: data.skills.split(",").map((item) => item.trim()).filter(Boolean),
     currentProject: data.currentProject,
     status: data.status as TeamMemberRecord["status"],
   };
@@ -51,6 +64,7 @@ export default function TeamPage() {
   const { items: members, isLoading, isSubmitting, error } = useAppSelector((state) => state.teamMembers);
   const [open, setOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMemberRecord | null>(null);
+  const [deletingMember, setDeletingMember] = useState<TeamMemberRecord | null>(null);
 
   useEffect(() => {
     dispatch(fetchTeamMembers());
@@ -71,10 +85,10 @@ export default function TeamPage() {
     setEditingMember(null);
   };
 
-  const handleDeleteMember = (id: string) => {
-    if (confirm("Delete this team member?")) {
-      dispatch(deleteTeamMember(id));
-    }
+  const handleDeleteMember = () => {
+    if (!deletingMember) return;
+    dispatch(deleteTeamMember(deletingMember.id));
+    setDeletingMember(null);
   };
 
   return (
@@ -104,7 +118,9 @@ export default function TeamPage() {
                   "Name",
                   "Role",
                   "Email",
+                  "Employee ID",
                   "Department",
+                  "Location",
                   "Joining Date",
                   "Current Project",
                   "Status",
@@ -139,7 +155,9 @@ export default function TeamPage() {
                   </td>
 
                   <td className="px-4 py-3 text-sm text-gray-600">{member.email}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{member.employeeId || "-"}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{member.department}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{member.workLocation || "-"}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{formatJoiningDate(member.joiningDate)}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{member.currentProject}</td>
 
@@ -167,7 +185,7 @@ export default function TeamPage() {
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDeleteMember(member.id)}
+                        onClick={() => setDeletingMember(member)}
                         className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
                         aria-label={`Delete ${member.fullName}`}
                       >
@@ -179,14 +197,14 @@ export default function TeamPage() {
               ))}
               {!isLoading && members.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
+                  <td colSpan={10} className="px-4 py-12 text-center text-sm text-gray-400">
                     No team members found.
                   </td>
                 </tr>
               )}
               {isLoading && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
+                  <td colSpan={10} className="px-4 py-12 text-center text-sm text-gray-400">
                     Loading team members...
                   </td>
                 </tr>
@@ -213,6 +231,15 @@ export default function TeamPage() {
           />
         )}
       </Modal>
+
+      <ConfirmDialog
+        open={!!deletingMember}
+        title="Delete Team Member"
+        description={`Delete ${deletingMember?.fullName ?? 'this team member'} from the company directory? Existing leads that already reference this name will keep their current text value.`}
+        isWorking={isSubmitting}
+        onConfirm={handleDeleteMember}
+        onClose={() => setDeletingMember(null)}
+      />
     </div>
   );
 }

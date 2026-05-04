@@ -4,12 +4,14 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Clock, Download, Phone, Plus, Search } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import LogCallForm, { CallFormData } from '@/components/calls/LogCallForm';
 import { StatusBadge } from '@/components/ui/Badge';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { exportRowsToCsv } from '@/lib/export';
 import { formatDate, formatRelativeTime } from '@/lib/utils';
 import { addCall, deleteCall, fetchCalls, updateCall } from '@/store/slices/callsSlice';
+import { fetchTeamMembers } from '@/store/slices/teamMembersSlice';
 import { CallLog } from '@/types';
 
 function toCallPayload(data: CallFormData, existing?: CallLog): CallLog {
@@ -55,13 +57,19 @@ function callToFormData(call: CallLog): CallFormData {
 export default function CallsPage() {
   const dispatch = useAppDispatch();
   const calls = useAppSelector((state) => state.calls.calls);
+  const isSubmitting = useAppSelector((state) => state.calls.isSubmitting);
+  const teamMemberNames = useAppSelector((state) =>
+    state.teamMembers.items.filter((member) => member.status === 'Active').map((member) => member.fullName),
+  );
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [searchVal, setSearchVal] = useState('');
   const [selectedCall, setSelectedCall] = useState<CallLog | null>(null);
+  const [deletingCall, setDeletingCall] = useState<CallLog | null>(null);
 
   useEffect(() => {
     dispatch(fetchCalls({ limit: 100 }));
+    dispatch(fetchTeamMembers());
   }, [dispatch]);
 
   const filteredCalls = useMemo(() => calls.filter((call) => {
@@ -110,8 +118,10 @@ export default function CallsPage() {
     setSelectedCall(null);
   };
 
-  const handleDeleteCall = (callId: string) => {
-    dispatch(deleteCall(callId));
+  const handleDeleteCall = () => {
+    if (!deletingCall) return;
+    dispatch(deleteCall(deletingCall.id));
+    setDeletingCall(null);
   };
 
   const stats = [
@@ -215,7 +225,7 @@ export default function CallsPage() {
                     </button>
                     <button
                       className="text-sm font-medium text-red-600 hover:text-red-800"
-                      onClick={() => handleDeleteCall(call.id)}
+                      onClick={() => setDeletingCall(call)}
                     >
                       Delete
                     </button>
@@ -236,15 +246,24 @@ export default function CallsPage() {
       </div>
 
       <Modal open={isAddOpen} onClose={() => setIsAddOpen(false)} title="Log Call" subtitle="Add a new call log" size="lg">
-        <LogCallForm onSave={handleSaveCall} />
+        <LogCallForm onSave={handleSaveCall} teamMembers={teamMemberNames} />
       </Modal>
       <Modal open={isEditOpen} onClose={() => setIsEditOpen(false)} title="Edit Call" subtitle="Update call information" size="lg">
         <LogCallForm
           onSave={handleUpdateCall}
           initialData={selectedCall ? callToFormData(selectedCall) : undefined}
           mode="edit"
+          teamMembers={teamMemberNames}
         />
       </Modal>
+      <ConfirmDialog
+        open={!!deletingCall}
+        title="Delete Call Log"
+        description={`Delete this call log for ${deletingCall?.leadName ?? 'this lead'}? Any auto follow-up generated from this call will also be removed by the backend.`}
+        isWorking={isSubmitting}
+        onConfirm={handleDeleteCall}
+        onClose={() => setDeletingCall(null)}
+      />
     </div>
   );
 }

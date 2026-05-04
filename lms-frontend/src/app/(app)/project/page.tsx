@@ -12,15 +12,20 @@ import { exportRowsToCsv } from '@/lib/export';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { ProjectRecord } from '@/types';
 import { fetchProjects, upsertProject } from '@/store/slices/projectsSlice';
+import { fetchTeamMembers } from '@/store/slices/teamMembersSlice';
 
 export default function ProjectPage() {
   const dispatch = useAppDispatch();
   const projects = useAppSelector((state) => state.projects.projects);
+  const teamMemberNames = useAppSelector((state) =>
+    state.teamMembers.items.filter((member) => member.status === 'Active').map((member) => member.fullName),
+  );
   const [invoiceProject, setInvoiceProject] = useState<ProjectRecord | null>(null);
   const [editingProject, setEditingProject] = useState<ProjectRecord | null>(null);
 
   useEffect(() => {
     dispatch(fetchProjects({ limit: 100 }));
+    dispatch(fetchTeamMembers());
     console.log('Projects loaded:', projects);
   }, [dispatch,projects.length]);
 
@@ -213,6 +218,7 @@ export default function ProjectPage() {
             initialData={projectToFormData(editingProject)}
             onSave={handleSaveProject}
             onClose={() => setEditingProject(null)}
+            teamMembers={teamMemberNames}
           />
         )}
       </Modal>

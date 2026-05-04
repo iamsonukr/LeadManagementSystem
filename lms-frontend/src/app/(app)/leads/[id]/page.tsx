@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Edit, Mail, Phone, Plus, Star, Trash2 } from 'lucide-react';
@@ -11,6 +11,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { addCall } from '@/store/slices/callsSlice';
 import { updateLead } from '@/store/slices/leadsSlice';
+import { fetchTeamMembers } from '@/store/slices/teamMembersSlice';
 import { CallLog } from '@/types';
 
 export default function LeadDetailPage() {
@@ -18,7 +19,14 @@ export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const lead = useAppSelector((state) => state.leads.leads.find((item) => item.id === id));
   const calls = useAppSelector((state) => state.calls.calls.filter((call) => call.leadId === id));
+  const teamMemberNames = useAppSelector((state) =>
+    state.teamMembers.items.filter((member) => member.status === 'Active').map((member) => member.fullName),
+  );
   const [isLogCallOpen, setIsLogCallOpen] = useState(false);
+
+  useEffect(() => {
+    dispatch(fetchTeamMembers());
+  }, [dispatch]);
 
   if (!lead) {
     return (
@@ -228,7 +236,7 @@ export default function LeadDetailPage() {
       </div>
 
       <Modal open={isLogCallOpen} onClose={() => setIsLogCallOpen(false)} title="" subtitle="" size="lg">
-        <LogCallForm onSave={handleSaveCall} initialData={initialCallForm} />
+        <LogCallForm onSave={handleSaveCall} initialData={initialCallForm} teamMembers={teamMemberNames} />
       </Modal>
     </div>
   );
