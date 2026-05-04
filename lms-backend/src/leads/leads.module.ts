@@ -15,6 +15,7 @@ import {
   FollowUp,
   FollowUpSchema,
 } from '../followups/followups.entity';
+import { CallLog, CallLogSchema } from '../calls/calls.entity';
 
 @Module({
   imports: [
@@ -30,6 +31,10 @@ import {
       {
         name: FollowUp.name,
         schema: FollowUpSchema,
+      },
+      {
+        name: CallLog.name,
+        schema: CallLogSchema,
       },
     ]),
   ],

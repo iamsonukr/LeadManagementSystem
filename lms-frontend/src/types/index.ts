@@ -131,6 +131,32 @@ export interface Company {
   createdAt: string;
 }
 
+export interface TeamMemberRecord {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  department: string;
+  joiningDate: string;
+  currentProject: string;
+  status: 'Active' | 'Inactive' | 'On Leave' | 'Resigned';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserRecord {
+  id: string;
+  name: string;
+  email: string;
+  role: 'Admin' | 'Sales Manager' | 'Sales Executive';
+  department: string;
+  phone: string;
+  status: 'Active' | 'Inactive';
+  leads: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DashboardStats {
   totalLeads: number;
   newLeads: number;

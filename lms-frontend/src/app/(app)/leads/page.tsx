@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Download, Mail, PenLine, Phone, Plus, Search } from 'lucide-react';
+import { Download, Mail, PenLine, Phone, Plus, Search, Trash2 } from 'lucide-react';
 import AddLeadForm, { LeadFormData } from '@/components/leads/AddLeadForm';
 import Modal from '@/components/ui/Modal';
 import { PriorityBadge } from '@/components/ui/Badge';
@@ -10,7 +10,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { leadSourceOptions, leadStatusOptions, normalizeServices } from '@/lib/crm';
 import { exportRowsToCsv } from '@/lib/export';
 import { formatCurrency, formatDate, formatRelativeTime } from '@/lib/utils';
-import { addLead, fetchLeads, setFilter, updateLead, updateLeadStatus } from '@/store/slices/leadsSlice';
+import { addLead, deleteLeadThunk, fetchLeads, setFilter, updateLead, updateLeadStatus } from '@/store/slices/leadsSlice';
 import { setAddLeadModal } from '@/store/slices/uiSlice';
 import { Lead, LeadStatus } from '@/types';
 
@@ -106,7 +106,7 @@ function leadToFormData(lead: Lead): LeadFormData {
 
 export default function LeadsPage() {
   const dispatch = useAppDispatch();
-  const { leads, filters } = useAppSelector((state) => state.leads);
+  const { leads, filters, error, isSubmitting } = useAppSelector((state) => state.leads);
   const addLeadOpen = useAppSelector((state) => state.ui.addLeadModalOpen);
   const [searchVal, setSearchVal] = useState('');
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
@@ -162,6 +162,21 @@ export default function LeadsPage() {
     setEditingLead(null);
   };
 
+  const handleDeleteLead = (lead: Lead) => {
+    if (lead.status === 'Won') {
+      window.alert('Won leads cannot be deleted.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${lead.name}? This is permanent. Leads with projects, follow-ups, or call logs will be blocked by the backend.`,
+    );
+
+    if (confirmed) {
+      dispatch(deleteLeadThunk(lead.id));
+    }
+  };
+
   return (
     <div className="space-y-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -170,6 +185,7 @@ export default function LeadsPage() {
           <p className="mt-1 text-sm text-gray-500">
             Standard CRM coverage means every lead has an owner, pipeline stage, value, next action, and target close date.
           </p>
+          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <button
@@ -347,6 +363,19 @@ export default function LeadsPage() {
                       >
                         <Mail size={14} />
                       </a>
+                      <button
+                        onClick={() => handleDeleteLead(lead)}
+                        disabled={lead.status === 'Won' || isSubmitting}
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                          lead.status === 'Won'
+                            ? 'cursor-not-allowed bg-gray-50 text-gray-300'
+                            : 'bg-red-50 text-red-600 hover:bg-red-100'
+                        }`}
+                        aria-label={`Delete ${lead.name}`}
+                        title={lead.status === 'Won' ? 'Won leads cannot be deleted' : 'Delete lead'}
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </td>
                 </tr>

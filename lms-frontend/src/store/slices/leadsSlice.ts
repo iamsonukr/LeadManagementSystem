@@ -1,6 +1,16 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { AxiosError } from 'axios';
 import { Lead, LeadStatus } from '@/types';
 import leadsService, { LeadFilters, DashboardStats } from '@/services/leadsService';
+
+const getErrorMessage = (err: unknown, fallback: string) => {
+  if (err instanceof AxiosError) {
+    const data = err.response?.data as { message?: string | string[] } | undefined;
+    if (Array.isArray(data?.message)) return data.message.join(', ');
+    if (data?.message) return data.message;
+  }
+  return err instanceof Error ? err.message : fallback;
+};
 
 export const fetchLeads = createAsyncThunk('leads/fetchAll', async (filters: LeadFilters = {}, { rejectWithValue }) => {
   try { return await leadsService.getAll(filters); }
@@ -38,7 +48,7 @@ export const updateLeadStatus = patchLeadStatus;
 
 export const deleteLeadThunk = createAsyncThunk('leads/delete', async (id: string, { rejectWithValue }) => {
   try { await leadsService.delete(id); return id; }
-  catch { return rejectWithValue('Failed'); }
+  catch (err: unknown) { return rejectWithValue(getErrorMessage(err, 'Failed to delete lead')); }
 });
 
 export const fetchDashboardStats = createAsyncThunk('leads/dashboardStats', async (_, { rejectWithValue }) => {
@@ -117,6 +127,9 @@ const leadsSlice = createSlice({
     });
     builder.addCase(deleteLeadThunk.fulfilled, (s, a) => {
       s.leads = s.leads.filter(l => l.id !== a.payload);
+    });
+    builder.addCase(deleteLeadThunk.rejected, (s, a) => {
+      s.error = a.payload as string;
     });
     builder
       .addCase(fetchDashboardStats.pending, s => { s.isLoading = true; })

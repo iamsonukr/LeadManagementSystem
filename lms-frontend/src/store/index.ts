@@ -3,6 +3,8 @@ import leadsReducer from './slices/leadsSlice';
 import callsReducer from './slices/callsSlice';
 import followUpsReducer from './slices/followUpsSlice';
 import projectsReducer from './slices/projectsSlice';
+import teamMembersReducer from './slices/teamMembersSlice';
+import usersReducer from './slices/usersSlice';
 import uiReducer from './slices/uiSlice';
 
 export const store = configureStore({
@@ -11,6 +13,8 @@ export const store = configureStore({
     calls: callsReducer,
     followUps: followUpsReducer,
     projects: projectsReducer,
+    teamMembers: teamMembersReducer,
+    users: usersReducer,
     ui: uiReducer,
   },
 });

@@ -6,16 +6,22 @@ import { User, Mail, Briefcase, Save, X } from 'lucide-react';
 export interface UserFormData {
   name: string;
   email: string;
+  password: string;
   role: string;
   department: string;
+  phone: string;
+  status: string;
   leads: number;
 }
 
 const defaultForm: UserFormData = {
   name: '',
   email: '',
+  password: '',
   role: '',
   department: '',
+  phone: '',
+  status: 'Active',
   leads: 0,
 };
 
@@ -44,6 +50,9 @@ function Field({ label, required, children }: { label: string; required?: boolea
 const inputCls =
   'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 bg-white';
 
+const selectCls =
+  'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 bg-white text-gray-600';
+
 interface Props {
   onSave: (data: UserFormData) => void;
   onClose: () => void;
@@ -60,7 +69,7 @@ export default function AddUserForm({ onSave, onClose, initialData, mode = 'add'
   const isEdit = mode === 'edit';
 
   const set = (key: keyof UserFormData) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const value = key === 'leads' ? Number(e.target.value) : e.target.value;
       setForm(prev => ({ ...prev, [key]: value }));
     };
@@ -114,8 +123,18 @@ export default function AddUserForm({ onSave, onClose, initialData, mode = 'add'
             <Field label="Email" required>
               <input type="email" className={inputCls} value={form.email} onChange={set('email')} />
             </Field>
+            {!isEdit && (
+              <Field label="Password" required>
+                <input type="password" className={inputCls} value={form.password} onChange={set('password')} />
+              </Field>
+            )}
             <Field label="Role" required>
-              <input className={inputCls} value={form.role} onChange={set('role')} />
+              <select className={selectCls} value={form.role} onChange={set('role')}>
+                <option value="">Select role</option>
+                {['Admin', 'Sales Manager', 'Sales Executive'].map((role) => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
+              </select>
             </Field>
           </div>
         </div>
@@ -126,17 +145,18 @@ export default function AddUserForm({ onSave, onClose, initialData, mode = 'add'
             <Field label="Department">
               <input className={inputCls} value={form.department} onChange={set('department')} />
             </Field>
+            <Field label="Phone">
+              <input className={inputCls} value={form.phone} onChange={set('phone')} />
+            </Field>
             <Field label="Assigned Leads">
               <input type="number" min="0" className={inputCls} value={form.leads} onChange={set('leads')} />
             </Field>
             <Field label="Status">
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white hover:bg-gray-50 text-gray-700"
-              >
-                Cancel
-              </button>
+              <select className={selectCls} value={form.status} onChange={set('status')}>
+                {['Active', 'Inactive'].map((status) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
             </Field>
           </div>
         </div>

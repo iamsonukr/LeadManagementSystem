@@ -10,7 +10,9 @@ import {
   IsOptional,
   MinLength,
   IsIn,
+  IsNumber,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateUserDto {
   @ApiProperty() @IsString() name: string;
@@ -22,6 +24,15 @@ export class CreateUserDto {
   role?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() department?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() phone?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsIn(['Active', 'Inactive'])
+  status?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  leads?: number;
 }
 
 export class UpdateUserDto extends PartialType(

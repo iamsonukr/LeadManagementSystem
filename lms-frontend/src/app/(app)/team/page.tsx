@@ -1,73 +1,17 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import AddTeamMemberForm, { TeamFormData } from "@/components/team/AddTeamMember";
 import Modal from "@/components/ui/Modal";
-import { PenLine, Plus } from "lucide-react";
-import { useState } from "react";
-
-interface TeamMember {
-  id: string;
-  name: string;
-  role: string;
-  email: string;
-  department: string;
-  joiningDate: string;
-  currentProject: string;
-  status: string;
-}
-
-const initialUsers: TeamMember[] = [
-  {
-    id: "1",
-    name: "John Doe",
-    role: "Frontend Developer",
-    email: "john@example.com",
-    department: "Development",
-    joiningDate: "2024-01-12",
-    currentProject: "CRM Dashboard",
-    status: "Active",
-  },
-  {
-    id: "2",
-    name: "Rohit Sharma",
-    role: "UI/UX Designer",
-    email: "priya@example.com",
-    department: "Design",
-    joiningDate: "2024-03-08",
-    currentProject: "Website Redesign",
-    status: "Active",
-  },
-  {
-    id: "3",
-    name: "Mike Johnson",
-    role: "Video Editor",
-    email: "mike@example.com",
-    department: "Media",
-    joiningDate: "2023-02-20",
-    currentProject: "Promo Video",
-    status: "On Leave",
-  },
-  {
-    id: "4",
-    name: "Ravi Kumar",
-    role: "Backend Developer",
-    email: "ravi@example.com",
-    department: "Development",
-    joiningDate: "2024-04-15",
-    currentProject: "API Integration",
-    status: "Active",
-  },
-  {
-    id: "5",
-    name: "Anjali Mehta",
-    role: "SEO Specialist",
-    email: "anjali@example.com",
-    department: "Marketing",
-    joiningDate: "2024-06-01",
-    currentProject: "SEO Campaign",
-    status: "Inactive",
-  },
-];
+import { useAppDispatch, useAppSelector } from "@/hooks/redux";
+import {
+  addTeamMember,
+  deleteTeamMember,
+  fetchTeamMembers,
+  updateTeamMember,
+} from "@/store/slices/teamMembersSlice";
+import { TeamMemberRecord } from "@/types";
+import { PenLine, Plus, Trash2 } from "lucide-react";
 
 function formatJoiningDate(value: string) {
   if (!value) return "-";
@@ -78,9 +22,9 @@ function formatJoiningDate(value: string) {
   }).format(new Date(`${value}T00:00:00`));
 }
 
-function memberToFormData(member: TeamMember): TeamFormData {
+function memberToFormData(member: TeamMemberRecord): TeamFormData {
   return {
-    fullName: member.name,
+    fullName: member.fullName,
     email: member.email,
     role: member.role,
     department: member.department,
@@ -90,58 +34,61 @@ function memberToFormData(member: TeamMember): TeamFormData {
   };
 }
 
+function formToMemberPayload(data: TeamFormData): Omit<TeamMemberRecord, "id" | "createdAt" | "updatedAt"> {
+  return {
+    fullName: data.fullName,
+    email: data.email,
+    role: data.role,
+    department: data.department,
+    joiningDate: data.joiningDate,
+    currentProject: data.currentProject,
+    status: data.status as TeamMemberRecord["status"],
+  };
+}
+
 export default function TeamPage() {
+  const dispatch = useAppDispatch();
+  const { items: members, isLoading, isSubmitting, error } = useAppSelector((state) => state.teamMembers);
   const [open, setOpen] = useState(false);
-  const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
-  const [users, setUsers] = useState<TeamMember[]>(initialUsers);
+  const [editingMember, setEditingMember] = useState<TeamMemberRecord | null>(null);
+
+  useEffect(() => {
+    dispatch(fetchTeamMembers());
+  }, [dispatch]);
 
   const handleAddMember = (data: TeamFormData) => {
-    setUsers((prev) => [
-      {
-        id: Date.now().toString(),
-        name: data.fullName,
-        role: data.role,
-        email: data.email,
-        department: data.department,
-        joiningDate: data.joiningDate,
-        currentProject: data.currentProject,
-        status: data.status,
-      },
-      ...prev,
-    ]);
+    dispatch(addTeamMember(formToMemberPayload(data)));
     setOpen(false);
   };
 
   const handleEditMember = (data: TeamFormData) => {
     if (!editingMember) return;
 
-    setUsers((prev) =>
-      prev.map((member) =>
-        member.id === editingMember.id
-          ? {
-              ...member,
-              name: data.fullName,
-              role: data.role,
-              email: data.email,
-              department: data.department,
-              joiningDate: data.joiningDate,
-              currentProject: data.currentProject,
-              status: data.status,
-            }
-          : member
-      )
-    );
+    dispatch(updateTeamMember({
+      ...editingMember,
+      ...formToMemberPayload(data),
+    }));
     setEditingMember(null);
+  };
+
+  const handleDeleteMember = (id: string) => {
+    if (confirm("Delete this team member?")) {
+      dispatch(deleteTeamMember(id));
+    }
   };
 
   return (
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Team Members</h1>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Team Members</h1>
+          {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        </div>
 
         <button
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700"
+          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 disabled:opacity-60"
           onClick={() => setOpen(true)}
+          disabled={isSubmitting}
         >
           <Plus size={14} />
           Add Member
@@ -149,79 +96,104 @@ export default function TeamPage() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-        <table className="w-full">
-          <thead className="border-b border-gray-100 bg-gray-50/60">
-            <tr>
-              {[
-                "Name",
-                "Role",
-                "Email",
-                "Department",
-                "Joining Date",
-                "Current Project",
-                "Status",
-                "Actions",
-              ].map((header) => (
-                <th
-                  key={header}
-                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500"
-                >
-                  {header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.id} className="border-b border-gray-50 hover:bg-indigo-50/30">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
-                      {user.name[0]}
-                    </div>
-                    <span className="text-sm font-medium text-gray-800">{user.name}</span>
-                  </div>
-                </td>
-
-                <td className="px-4 py-3">
-                  <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
-                    {user.role}
-                  </span>
-                </td>
-
-                <td className="px-4 py-3 text-sm text-gray-600">{user.email}</td>
-                <td className="px-4 py-3 text-sm text-gray-600">{user.department}</td>
-                <td className="px-4 py-3 text-sm text-gray-600">{formatJoiningDate(user.joiningDate)}</td>
-                <td className="px-4 py-3 text-sm text-gray-600">{user.currentProject}</td>
-
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      user.status === "Active"
-                        ? "bg-green-50 text-green-700"
-                        : user.status === "On Leave"
-                          ? "bg-yellow-50 text-yellow-700"
-                          : "bg-red-50 text-red-700"
-                    }`}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[960px]">
+            <thead className="border-b border-gray-100 bg-gray-50/60">
+              <tr>
+                {[
+                  "Name",
+                  "Role",
+                  "Email",
+                  "Department",
+                  "Joining Date",
+                  "Current Project",
+                  "Status",
+                  "Actions",
+                ].map((header) => (
+                  <th
+                    key={header}
+                    className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500"
                   >
-                    {user.status}
-                  </span>
-                </td>
-
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => setEditingMember(user)}
-                    className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100"
-                  >
-                    <PenLine size={13} />
-                    Edit
-                  </button>
-                </td>
+                    {header}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {members.map((member) => (
+                <tr key={member.id} className="border-b border-gray-50 hover:bg-indigo-50/30">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
+                        {member.fullName[0] || "T"}
+                      </div>
+                      <span className="text-sm font-medium text-gray-800">{member.fullName}</span>
+                    </div>
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                      {member.role}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-3 text-sm text-gray-600">{member.email}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{member.department}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{formatJoiningDate(member.joiningDate)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{member.currentProject}</td>
+
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        member.status === "Active"
+                          ? "bg-green-50 text-green-700"
+                          : member.status === "On Leave"
+                            ? "bg-yellow-50 text-yellow-700"
+                            : "bg-red-50 text-red-700"
+                      }`}
+                    >
+                      {member.status}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setEditingMember(member)}
+                        className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100"
+                      >
+                        <PenLine size={13} />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteMember(member.id)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+                        aria-label={`Delete ${member.fullName}`}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!isLoading && members.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
+                    No team members found.
+                  </td>
+                </tr>
+              )}
+              {isLoading && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
+                    Loading team members...
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <Modal title="Add Team Member" open={open} onClose={() => setOpen(false)} size="lg">

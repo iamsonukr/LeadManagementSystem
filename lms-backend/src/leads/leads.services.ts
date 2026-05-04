@@ -19,6 +19,7 @@ import {
 
 import { Project, ProjectDocument } from '../projects/projects.entity';
 import { FollowUp, FollowUpDocument } from '../followups/followups.entity';
+import { CallLog, CallLogDocument } from '../calls/calls.entity';
 
 const LEAD_NEXT_FOLLOWUP_SOURCE = 'lead-next-followup';
 const LEAD_STATUS_FOLLOWUP_SOURCE = 'lead-status-followup';
@@ -35,6 +36,9 @@ export class LeadServices {
 
     @InjectModel(FollowUp.name)
     private readonly followUpModel: Model<FollowUpDocument>,
+
+    @InjectModel(CallLog.name)
+    private readonly callLogModel: Model<CallLogDocument>,
   ) { }
 
   // =========================================
@@ -319,11 +323,24 @@ export class LeadServices {
       throw new BadRequestException('Invalid lead id');
     }
 
-    // Prevent deleting lead linked to projects
+    const leadObjectId = new Types.ObjectId(id);
+    const lead = await this.leadModel.findById(leadObjectId);
 
-    const projectExists = await this.projectModel.exists({
-      lead: new Types.ObjectId(id),
-    });
+    if (!lead) {
+      throw new NotFoundException('Lead not found');
+    }
+
+    if (lead.status === 'Won') {
+      throw new BadRequestException(
+        'Cannot delete a Won lead. Move it out of Won only if no project exists.',
+      );
+    }
+
+    const [projectExists, followUpExists, callLogExists] = await Promise.all([
+      this.projectModel.exists({ lead: leadObjectId }),
+      this.followUpModel.exists({ lead: leadObjectId }),
+      this.callLogModel.exists({ lead: leadObjectId }),
+    ]);
 
     if (projectExists) {
       throw new BadRequestException(
@@ -331,11 +348,19 @@ export class LeadServices {
       );
     }
 
-    const deletedLead = await this.leadModel.findByIdAndDelete(id);
-
-    if (!deletedLead) {
-      throw new NotFoundException('Lead not found');
+    if (followUpExists) {
+      throw new BadRequestException(
+        'Cannot delete lead with follow-ups. Delete or complete related follow-ups first.',
+      );
     }
+
+    if (callLogExists) {
+      throw new BadRequestException(
+        'Cannot delete lead with call logs. Delete related call logs first.',
+      );
+    }
+
+    await this.leadModel.findByIdAndDelete(leadObjectId);
 
     return {
       message: 'Lead deleted successfully',

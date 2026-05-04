@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -40,5 +41,10 @@ export class TeamMemberController {
   @Patch('/toggle-status/:id')
   toggleStatus(@Param('id') id: string, @Body() dto: UpdateTeamMemberDto) {
     return this.service.toggleStatus(id, dto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.service.remove(id);
   }
 }

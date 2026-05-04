@@ -71,4 +71,15 @@ export class TeamMemberServices {
 
     return member.save();
   }
+
+  async remove(id: string) {
+    this.assertObjectId(id);
+    const member = await this.teamMemberModel.findByIdAndDelete(id).exec();
+
+    if (!member) {
+      throw new NotFoundException('Team member not found');
+    }
+
+    return { message: 'Team member deleted successfully' };
+  }
 }

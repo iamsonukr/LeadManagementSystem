@@ -1,4 +1,12 @@
-import { CallLog, Company, FollowUpRecord, Lead, ProjectRecord } from '@/types';
+import {
+  CallLog,
+  Company,
+  FollowUpRecord,
+  Lead,
+  ProjectRecord,
+  TeamMemberRecord,
+  UserRecord,
+} from '@/types';
 
 type ApiEnvelope<T> = {
   success?: boolean;
@@ -218,6 +226,40 @@ export const normalizeProject = (
     paymentStatus:
       (item.paymentStatus as ProjectRecord['paymentStatus']) ??
       'Advance Pending',
+  };
+};
+
+export const normalizeTeamMember = (raw: unknown): TeamMemberRecord => {
+  const item = asRecord(raw);
+
+  return {
+    id: getId(item),
+    fullName: String(item.fullName ?? item.name ?? ''),
+    email: String(item.email ?? ''),
+    role: String(item.role ?? ''),
+    department: String(item.department ?? ''),
+    joiningDate: String(item.joiningDate ?? ''),
+    currentProject: String(item.currentProject ?? ''),
+    status: (item.status as TeamMemberRecord['status']) ?? 'Active',
+    createdAt: String(item.createdAt ?? new Date().toISOString()),
+    updatedAt: String(item.updatedAt ?? item.createdAt ?? new Date().toISOString()),
+  };
+};
+
+export const normalizeUser = (raw: unknown): UserRecord => {
+  const item = asRecord(raw);
+
+  return {
+    id: getId(item),
+    name: String(item.name ?? ''),
+    email: String(item.email ?? ''),
+    role: (item.role as UserRecord['role']) ?? 'Sales Executive',
+    department: String(item.department ?? ''),
+    phone: String(item.phone ?? ''),
+    status: (item.status as UserRecord['status']) ?? 'Active',
+    leads: Number(item.leads ?? 0),
+    createdAt: String(item.createdAt ?? new Date().toISOString()),
+    updatedAt: String(item.updatedAt ?? item.createdAt ?? new Date().toISOString()),
   };
 };
 
