@@ -17,13 +17,13 @@ export class Project {
   })
   lead!: Types.ObjectId;
 
-  @Prop({ required: true })
-  name!: string;
+  @Prop({ trim: true })
+  name?: string;
 
-  @Prop()
-  service?: string;
+  @Prop({ type: [String], default: [] })
+  services?: string[];
 
-  @Prop()
+  @Prop({ trim: true })
   owner?: string;
 
   @Prop({ default: 'Kickoff' })
@@ -32,8 +32,8 @@ export class Project {
   @Prop({ default: 'Medium' })
   priority!: string;
 
-  @Prop({ type: Number })
-  budget?: number;
+  @Prop({ type: Number, default: 0 })
+  budget!: number;
 
   @Prop({ type: Number, default: 0 })
   amountReceived!: number;
@@ -50,7 +50,7 @@ export class Project {
   @Prop()
   lastMilestone?: string;
 
-  @Prop()
+  @Prop({ trim: true })
   source?: string;
 }
 

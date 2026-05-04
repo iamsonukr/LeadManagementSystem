@@ -29,6 +29,8 @@ interface SeededLead {
   leadValue?: number;
   source?: string;
   nextAction?: string;
+  nextFollowUp?: Date;
+  notes?: string;
 }
 
 async function upsertAdmin() {
@@ -205,20 +207,24 @@ async function seedActivity(leads: SeededLead[]) {
     );
 
     await FollowUpModel.updateOne(
-      { lead: leadId, dueAt: new Date('2026-05-03T10:30:00.000Z') },
       {
-        $setOnInsert: {
+        lead: leadId,
+        source: 'lead-next-followup',
+      },
+      {
+        $set: {
           lead: leadId,
           owner: lead.assignedTo,
           type: lead.status === 'Won' ? 'Meeting' : 'Call',
           status: lead.status === 'Won' ? 'Completed' : 'Pending',
           priority: lead.priority,
-          dueAt: new Date('2026-05-03T10:30:00.000Z'),
+          dueAt: lead.nextFollowUp ?? new Date('2026-05-03T10:30:00.000Z'),
           completedAt:
             lead.status === 'Won'
               ? new Date('2026-04-25T12:00:00.000Z')
               : undefined,
-          notes: `Follow up with ${lead.company || lead.name}`,
+          source: 'lead-next-followup',
+          notes: lead.notes ?? `Follow up with ${lead.company || lead.name}`,
           nextAction: lead.nextAction,
         },
       },

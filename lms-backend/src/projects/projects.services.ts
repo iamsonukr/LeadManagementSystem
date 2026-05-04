@@ -5,7 +5,9 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+
 import { Project, ProjectDocument } from './projects.entity';
+
 import {
   CreateProjectDto,
   ProjectFilterDto,
@@ -20,9 +22,19 @@ export class ProjectsService {
   ) {}
 
   async findAll(query: ProjectFilterDto) {
-    const { lead, status, owner, search, page = 1, limit = 10 } = query;
+    const {
+      lead,
+      status,
+      search,
+      page = 1,
+      limit = 10,
+    } = query;
 
     const filter: Record<string, unknown> = {};
+
+    // =========================
+    // Filters
+    // =========================
 
     if (lead) {
       if (!Types.ObjectId.isValid(lead)) {
@@ -30,16 +42,33 @@ export class ProjectsService {
       }
       filter.lead = new Types.ObjectId(lead);
     }
+    if (status) {
+      filter.status = status;
+    }
 
-    if (status) filter.status = status;
-    if (owner) filter.owner = owner;
+    let leadIds: Types.ObjectId[] = [];
 
     if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { service: { $regex: search, $options: 'i' } },
-        { owner: { $regex: search, $options: 'i' } },
-      ];
+      const projects = await this.projectModel
+        .find()
+        .populate({
+          path: 'lead',
+          match: {
+            $or: [
+              { name: { $regex: search, $options: 'i' } },
+              { email: { $regex: search, $options: 'i' } },
+              { company: { $regex: search, $options: 'i' } },
+              { assignedTo: { $regex: search, $options: 'i' } },
+            ],
+          },
+          select: '_id',
+        });
+
+      leadIds = projects
+        .filter((p) => p.lead)
+        .map((p) => (p.lead as any)._id);
+
+      filter.lead = { $in: leadIds };
     }
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -47,10 +76,25 @@ export class ProjectsService {
     const [data, total] = await Promise.all([
       this.projectModel
         .find(filter)
-        .populate('lead')
+        .populate(
+          'lead',
+          `
+            name
+            email
+            phone
+            company
+            assignedTo
+            services
+            source
+            budget
+            priority
+            status
+          `,
+        )
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit)),
+
       this.projectModel.countDocuments(filter),
     ]);
 
@@ -68,7 +112,23 @@ export class ProjectsService {
       throw new BadRequestException('Invalid project id');
     }
 
-    const project = await this.projectModel.findById(id).populate('lead');
+    const project = await this.projectModel
+      .findById(id)
+      .populate(
+        'lead',
+        `
+          name
+          email
+          phone
+          company
+          assignedTo
+          services
+          source
+          budget
+          priority
+          status
+        `,
+      );
 
     if (!project) {
       throw new NotFoundException('Project not found');
@@ -87,33 +147,67 @@ export class ProjectsService {
       lead: new Types.ObjectId(dto.lead),
     });
 
-    return project.populate('lead');
+    return project.populate(
+      'lead',
+      `
+        name
+        email
+        phone
+        company
+        assignedTo
+        services
+        source
+        budget
+        priority
+        status
+      `,
+    );
   }
 
   async update(id: string, dto: UpdateProjectDto) {
+    console.log("Reached here ---", dto)
+    
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid project id');
     }
 
     const cleanDto = Object.fromEntries(
-      Object.entries(dto).filter((entry) => entry[1] !== undefined),
+      Object.entries(dto).filter(([_, value]) => value !== undefined),
     );
 
     if (cleanDto.lead) {
       if (!Types.ObjectId.isValid(cleanDto.lead as string)) {
         throw new BadRequestException('Invalid lead id');
       }
+
       cleanDto.lead = new Types.ObjectId(cleanDto.lead as string);
     }
 
     const updatedProject = await this.projectModel
-      .findByIdAndUpdate(id, { $set: cleanDto }, { new: true })
-      .populate('lead');
+      .findByIdAndUpdate(
+        id,
+        { $set: cleanDto },
+        { new: true },
+      )
+      .populate(
+        'lead',
+        `
+          name
+          email
+          phone
+          company
+          assignedTo
+          services
+          source
+          budget
+          priority
+          status
+        `,
+      );
 
     if (!updatedProject) {
       throw new NotFoundException('Project not found');
     }
-
     return updatedProject;
   }
 
@@ -128,6 +222,8 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
 
-    return { message: 'Project deleted successfully' };
+    return {
+      message: 'Project deleted successfully',
+    };
   }
 }

@@ -5,11 +5,13 @@ import { Bell, Search, ChevronDown, Calendar, LogOut, User, Settings, Menu } fro
 import { useAuth } from '@/context/AuthContext';
 import { useDispatch } from 'react-redux';
 import { toggleSidebar } from '@/store/slices/uiSlice';
+import { useRouter } from 'next/navigation';
 
 export default function AppHeader() {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const dispatch = useDispatch();
+  const router = useRouter();
 
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -72,10 +74,22 @@ export default function AppHeader() {
                   <div className="text-sm font-semibold text-gray-800">{user?.name}</div>
                   <div className="text-xs text-gray-400">{user?.email}</div>
                 </div>
-                <button className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    router.push('/myprofile');
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                >
                   <User size={14} className="text-gray-400" /> My Profile
                 </button>
-                <button className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    router.push('/settings');
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                >
                   <Settings size={14} className="text-gray-400" /> Settings
                 </button>
                 <div className="border-t border-gray-100 mt-1 pt-1">

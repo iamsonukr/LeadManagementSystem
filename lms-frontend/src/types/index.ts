@@ -61,7 +61,7 @@ export interface ProjectRecord {
   leadId: string;
   name: string;
   client: string;
-  service: string;
+  services: string[];
   owner: string;
   status: 'Kickoff' | 'Planning' | 'In Progress' | 'Review' | 'Completed' | 'On Hold';
   priority: LeadPriority;

@@ -14,13 +14,14 @@ export default function InvoiceGenerator({ project }: InvoiceGeneratorProps) {
   const balance = project.budget - project.amountReceived;
   const invoiceDate = new Date().toLocaleDateString();
   const invoiceNumber = `INV-${project.id.toUpperCase()}-${new Date().getFullYear()}`;
+  const services = project.services.join(', ') || 'Not captured';
 
   const invoiceText = `INVOICE
 ${invoiceNumber}
 
 Client: ${project.client}
 Project: ${project.name}
-Service: ${project.service}
+Service: ${services}
 Owner: ${project.owner}
 Invoice Date: ${invoiceDate}
 Start Date: ${formatDate(project.startDate)}
@@ -80,7 +81,7 @@ Lead Source: ${project.source}
               </div>
               <div>
                 <div class="label">Service</div>
-                <div class="value">${project.service}</div>
+                <div class="value">${services}</div>
               </div>
               <div>
                 <div class="label">Owner</div>
@@ -158,7 +159,7 @@ Lead Source: ${project.source}
           </div>
           <div>
             <p className="text-xs font-semibold uppercase text-gray-600">Service</p>
-            <p className="text-sm font-medium text-gray-900">{project.service}</p>
+            <p className="text-sm font-medium text-gray-900">{services}</p>
           </div>
           <div className="text-right">
             <p className="text-xs font-semibold uppercase text-gray-600">Owner</p>

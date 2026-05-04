@@ -9,6 +9,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, QueryFilter, Types } from 'mongoose';
 
 import { CallLog, CallLogDocument } from './calls.entity';
+import { FollowUp, FollowUpDocument } from '../followups/followups.entity';
 
 import {
   CreateCallLogDto,
@@ -22,6 +23,9 @@ export class CallsService {
   constructor(
     @InjectModel(CallLog.name)
     private callLogModel: Model<CallLogDocument>,
+
+    @InjectModel(FollowUp.name)
+    private followUpModel: Model<FollowUpDocument>,
   ) {}
 
   async findAll(query: CallLogFilterDto) {
@@ -115,7 +119,10 @@ export class CallsService {
       lead: new Types.ObjectId(dto.lead),
     });
 
-    return createdCall.populate('lead');
+    const populatedCall = await createdCall.populate('lead');
+    await this.syncCallFollowUp(populatedCall);
+
+    return populatedCall;
   }
 
   async update(id: string, dto: UpdateCallLogDto) {
@@ -150,6 +157,8 @@ export class CallsService {
       throw new NotFoundException('Call log not found');
     }
 
+    await this.syncCallFollowUp(updatedCall);
+
     return updatedCall;
   }
 
@@ -176,6 +185,8 @@ export class CallsService {
       throw new NotFoundException('Call log not found');
     }
 
+    await this.syncCallFollowUp(updatedCall);
+
     return updatedCall;
   }
 
@@ -190,8 +201,57 @@ export class CallsService {
       throw new NotFoundException('Call log not found');
     }
 
+    await this.followUpModel.deleteMany({
+      source: `call-log:${String(deletedCall._id)}`,
+    });
+
     return {
       message: 'Call log deleted successfully',
     };
+  }
+
+  private async syncCallFollowUp(call: CallLogDocument) {
+    const lead = call.lead as Types.ObjectId | Record<string, any>;
+    const leadRecord = lead instanceof Types.ObjectId ? {} : lead;
+    const leadId =
+      lead instanceof Types.ObjectId
+        ? lead
+        : new Types.ObjectId(String(leadRecord._id ?? leadRecord.id));
+    const source = `call-log:${String(call._id)}`;
+    const filter = {
+      lead: leadId,
+      source,
+      status: { $ne: 'Completed' },
+    };
+
+    const dueAt =
+      call.followUpDate ??
+      call.callbackDate ??
+      (call.status === 'Callback Scheduled'
+        ? new Date(Date.now() + 24 * 60 * 60 * 1000)
+        : undefined);
+
+    if (!dueAt) {
+      await this.followUpModel.deleteMany(filter);
+      return;
+    }
+
+    await this.followUpModel.findOneAndUpdate(
+      filter,
+      {
+        $set: {
+          lead: leadId,
+          owner: call.calledBy || String(leadRecord.assignedTo ?? ''),
+          type: 'Call',
+          status: new Date(dueAt).getTime() < Date.now() ? 'Overdue' : 'Pending',
+          priority: String(leadRecord.priority ?? 'Medium'),
+          dueAt,
+          source,
+          notes: call.notes || call.discussionPoints,
+          nextAction: call.nextAction || 'Follow up on call',
+        },
+      },
+      { new: true, upsert: true },
+    );
   }
 }

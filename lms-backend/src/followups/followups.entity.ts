@@ -12,7 +12,9 @@ export class FollowUp {
   @Prop()
   owner!: string;
 
-  @Prop({ enum: ['Demo', 'Proposal', 'Call', 'Email', 'Meeting'] })
+  @Prop({
+    enum: ['Demo', 'Proposal', 'Call', 'Email', 'Meeting', 'WhatsApp', 'Other'],
+  })
   type!: string;
 
   @Prop({
@@ -29,6 +31,9 @@ export class FollowUp {
 
   @Prop({ type: Date })
   completedAt!: Date;
+
+  @Prop()
+  source?: string;
 
   @Prop()
   notes!: string;

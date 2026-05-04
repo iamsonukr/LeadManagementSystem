@@ -8,29 +8,25 @@ import AddProjectForm, { ProjectFormData } from '@/components/projects/AddProjec
 import Modal from '@/components/ui/Modal';
 import InvoiceGenerator from '@/components/projects/InvoiceGenerator';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
-import { deriveProjectsFromLeads } from '@/lib/crm';
 import { exportRowsToCsv } from '@/lib/export';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { ProjectRecord } from '@/types';
 import { fetchProjects, upsertProject } from '@/store/slices/projectsSlice';
-import { fetchLeads } from '@/store/slices/leadsSlice';
 
 export default function ProjectPage() {
   const dispatch = useAppDispatch();
-  const leads = useAppSelector((state) => state.leads.leads);
-  const storedProjects = useAppSelector((state) => state.projects.projects);
-  const projects = deriveProjectsFromLeads(leads, storedProjects);
+  const projects = useAppSelector((state) => state.projects.projects);
   const [invoiceProject, setInvoiceProject] = useState<ProjectRecord | null>(null);
   const [editingProject, setEditingProject] = useState<ProjectRecord | null>(null);
 
   useEffect(() => {
-    dispatch(fetchLeads({ limit: 100 }));
     dispatch(fetchProjects({ limit: 100 }));
-  }, [dispatch]);
+    console.log('Projects loaded:', projects);
+  }, [dispatch,projects.length]);
 
   const projectToFormData = (project: ProjectRecord): ProjectFormData => ({
     name: project.name,
-    service: project.service,
+    service: project.services?.join(', '),
     client: project.client,
     owner: project.owner,
     startDate: project.startDate ? new Date(project.startDate).toISOString().slice(0, 10) : '',
@@ -48,7 +44,9 @@ export default function ProjectPage() {
     dispatch(upsertProject({
       ...editingProject,
       name: data.name,
-      service: data.service,
+      services: data.service
+        ? data.service.split(',').map((s) => s.trim()).filter(Boolean)
+        : [],
       client: data.client,
       owner: data.owner,
       status: data.status as ProjectRecord['status'],
@@ -70,7 +68,7 @@ export default function ProjectPage() {
       projects.map((project) => [
         project.name,
         project.client,
-        project.service,
+        project.services?.join(', '),
         project.status,
         project.priority,
         project.budget,
@@ -84,6 +82,8 @@ export default function ProjectPage() {
       ])
     );
   };
+
+
 
   return (
     <div className="p-6 space-y-5">
@@ -160,7 +160,7 @@ export default function ProjectPage() {
                     </div>
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-700">{project.client}</td>
-                  <td className="px-4 py-4 text-sm text-gray-700">{project.service}</td>
+                  <td className="px-4 py-4 text-sm text-gray-700">{project.services.join(', ') || 'Not captured'}</td>
                   <td className="px-4 py-4"><StatusBadge status={project.status} /></td>
                   <td className="px-4 py-4"><PriorityBadge priority={project.priority} /></td>
                   <td className="px-4 py-4 text-sm font-semibold text-gray-900">{formatCurrency(project.budget)}</td>
@@ -194,7 +194,7 @@ export default function ProjectPage() {
               {projects.length === 0 && (
                 <tr>
                   <td colSpan={14} className="px-4 py-12 text-center text-sm text-gray-400">
-                    No projects yet. Move a lead to `Won` to create a delivery handoff row.
+                    No projects yet. Move a lead to Won to create a delivery handoff row.
                   </td>
                 </tr>
               )}

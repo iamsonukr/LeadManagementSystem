@@ -19,6 +19,19 @@ type MongoRef<T> = string | ({ _id?: string; id?: string } & Partial<T>);
 const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 
+const toUniqueStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+  return value
+    .map((item) => String(item).trim())
+    .filter((item) => {
+      if (!item || seen.has(item)) return false;
+      seen.add(item);
+      return true;
+    });
+};
+
 export const unwrapApi = <T>(response: ApiEnvelope<T> | T): T => {
   if (response && typeof response === 'object' && 'data' in response) {
     return (response as ApiEnvelope<T>).data;
@@ -125,38 +138,86 @@ export const normalizeFollowUp = (raw: unknown): FollowUpRecord => {
     leadId: getRefId(item.lead as MongoRef<Lead>),
     leadName: String(lead.name ?? item.leadName ?? ''),
     company: String(lead.company ?? item.company ?? ''),
-    owner: String(item.owner ?? ''),
+    owner: String(item.owner ?? lead.assignedTo ?? ''),
     type: (item.type as FollowUpRecord['type']) ?? 'Call',
     status: (item.status as FollowUpRecord['status']) ?? 'Pending',
-    priority: (item.priority as FollowUpRecord['priority']) ?? 'Medium',
+    priority:
+      (item.priority as FollowUpRecord['priority']) ??
+      ((lead.priority as FollowUpRecord['priority']) || 'Medium'),
     dueAt: String(item.dueAt ?? new Date().toISOString()),
     completedAt: item.completedAt ? String(item.completedAt) : undefined,
     notes: String(item.notes ?? ''),
-    nextAction: String(item.nextAction ?? ''),
+    nextAction: String(item.nextAction ?? lead.nextAction ?? ''),
     createdAt: String(item.createdAt ?? new Date().toISOString()),
   };
 };
 
-export const normalizeProject = (raw: unknown): ProjectRecord => {
+export const normalizeProject = (
+  raw: unknown,
+): ProjectRecord => {
   const item = asRecord(raw);
+
   const lead = asRecord(item.lead);
+  const projectServices = toUniqueStringArray(item.services);
+  const leadServices = toUniqueStringArray(lead.services);
 
   return {
     id: getId(item),
-    leadId: getRefId(item.lead as MongoRef<Lead>),
-    name: String(item.name ?? ''),
-    client: String(lead.company ?? item.client ?? ''),
-    service: String(item.service ?? ''),
+
+    leadId: String(lead._id ?? ''),
+
+    // =========================================
+    // Lead Data
+    // =========================================
+
+    name: String(lead.name ?? ''),
+
+    client: String(lead.company ?? ''),
+
+    services: projectServices.length ? projectServices : leadServices,
+
+    budget: Number(lead.budget ?? 0),
+
+    source:
+      (lead.source as ProjectRecord['source']) ||
+      'Other',
+
+    // =========================================
+    // Project Data
+    // =========================================
+
     owner: String(item.owner ?? ''),
-    status: (item.status as ProjectRecord['status']) ?? 'Kickoff',
-    priority: (item.priority as ProjectRecord['priority']) ?? 'Medium',
-    budget: Number(item.budget ?? 0),
-    amountReceived: Number(item.amountReceived ?? 0),
-    startDate: String(item.startDate ?? item.createdAt ?? new Date().toISOString()),
-    deliveryDate: item.deliveryDate ? String(item.deliveryDate) : undefined,
-    lastMilestone: String(item.lastMilestone ?? ''),
-    paymentStatus: (item.paymentStatus as ProjectRecord['paymentStatus']) ?? 'Advance Pending',
-    source: (item.source as ProjectRecord['source']) ?? ((lead.source as ProjectRecord['source']) || 'Other'),
+
+    status:
+      (item.status as ProjectRecord['status']) ??
+      'Kickoff',
+
+    priority:
+      (item.priority as ProjectRecord['priority']) ??
+      ((lead.priority as ProjectRecord['priority']) ||
+        'Medium'),
+
+    amountReceived: Number(
+      item.amountReceived ?? 0,
+    ),
+
+    startDate: String(
+      item.startDate ??
+        item.createdAt ??
+        new Date().toISOString(),
+    ),
+
+    deliveryDate: item.deliveryDate
+      ? String(item.deliveryDate)
+      : undefined,
+
+    lastMilestone: String(
+      item.lastMilestone ?? '',
+    ),
+
+    paymentStatus:
+      (item.paymentStatus as ProjectRecord['paymentStatus']) ??
+      'Advance Pending',
   };
 };
 

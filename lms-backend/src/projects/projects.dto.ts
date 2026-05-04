@@ -1,5 +1,11 @@
 import { Type } from 'class-transformer';
-import { IsDateString, IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsDateString,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { PartialType } from '@nestjs/swagger';
 
 export class CreateProjectDto {
@@ -12,6 +18,11 @@ export class CreateProjectDto {
   @IsOptional()
   @IsString()
   service?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  services?: string[];
 
   @IsOptional()
   @IsString()

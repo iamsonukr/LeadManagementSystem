@@ -28,10 +28,12 @@ export class FollowupsServices {
 
   async create(dto: CreateFollowUpDto) {
     this.assertObjectId(dto.lead, 'lead');
-    return this.followUpModel.create({
+    const followup = await this.followUpModel.create({
       ...dto,
       lead: new Types.ObjectId(dto.lead),
     });
+
+    return followup.populate('lead');
   }
 
   async findAll(query: FollowUpFilterDto) {
@@ -99,11 +101,9 @@ export class FollowupsServices {
       clean.lead = new Types.ObjectId(clean.lead as string);
     }
 
-    const updated = await this.followUpModel.findByIdAndUpdate(
-      id,
-      { $set: clean },
-      { new: true },
-    );
+    const updated = await this.followUpModel
+      .findByIdAndUpdate(id, { $set: clean }, { new: true })
+      .populate('lead');
     if (!updated) {
       throw new NotFoundException('FollowUp not found');
     }
@@ -112,11 +112,9 @@ export class FollowupsServices {
 
   async updateStatus(id: string, status: string) {
     this.assertObjectId(id, 'followup');
-    const updated = await this.followUpModel.findByIdAndUpdate(
-      id,
-      { $set: { status } },
-      { new: true },
-    );
+    const updated = await this.followUpModel
+      .findByIdAndUpdate(id, { $set: { status } }, { new: true })
+      .populate('lead');
     if (!updated) {
       throw new NotFoundException('FollowUp not found');
     }

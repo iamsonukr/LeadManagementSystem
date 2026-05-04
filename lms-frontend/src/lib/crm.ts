@@ -83,7 +83,7 @@ export function deriveProjectsFromLeads(leads: Lead[], projects: ProjectRecord[]
         leadId: lead.id,
         name: `${lead.company} - ${lead.services[0] ?? 'Project'}`,
         client: lead.company,
-        service: lead.services.join(', ') || 'General Services',
+        services: lead.services.length ? lead.services : ['General Services'],
         owner: lead.assignedTo,
         status: 'Kickoff' as ProjectRecord['status'],
         priority: lead.priority,

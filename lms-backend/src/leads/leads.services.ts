@@ -8,7 +8,7 @@ import { InjectModel } from '@nestjs/mongoose';
 
 import { Lead, LeadDocument } from './leads.entity';
 
-import { Model, QueryFilter, Types } from 'mongoose';
+import { Model, Types } from 'mongoose';
 
 import {
   CreateLeadDto,
@@ -17,12 +17,25 @@ import {
   LeadFilterDto,
 } from './leads.dto';
 
+import { Project, ProjectDocument } from '../projects/projects.entity';
+import { FollowUp, FollowUpDocument } from '../followups/followups.entity';
+
+const LEAD_NEXT_FOLLOWUP_SOURCE = 'lead-next-followup';
+const LEAD_STATUS_FOLLOWUP_SOURCE = 'lead-status-followup';
+const TERMINAL_LEAD_STATUSES = new Set(['Won', 'Lost', 'Duplicate', 'Spam']);
+
 @Injectable()
 export class LeadServices {
   constructor(
     @InjectModel(Lead.name)
-    private leadModel: Model<LeadDocument>,
-  ) {}
+    private readonly leadModel: Model<LeadDocument>,
+
+    @InjectModel(Project.name)
+    private readonly projectModel: Model<ProjectDocument>,
+
+    @InjectModel(FollowUp.name)
+    private readonly followUpModel: Model<FollowUpDocument>,
+  ) { }
 
   // =========================================
   // Get All Leads
@@ -39,24 +52,54 @@ export class LeadServices {
       limit = 10,
     } = query;
 
-    const filter: QueryFilter<LeadDocument> = {};
+    const filter: Record<string, unknown> = {};
 
     // Filters
-    if (status) filter.status = status;
 
-    if (source) filter.source = source;
+    if (status) {
+      filter.status = status;
+    }
 
-    if (priority) filter.priority = priority;
+    if (source) {
+      filter.source = source;
+    }
 
-    if (assignedTo) filter.assignedTo = assignedTo;
+    if (priority) {
+      filter.priority = priority;
+    }
+
+    if (assignedTo) {
+      filter.assignedTo = assignedTo;
+    }
 
     // Search
+
     if (search) {
       filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { company: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } },
+        {
+          name: {
+            $regex: search,
+            $options: 'i',
+          },
+        },
+        {
+          email: {
+            $regex: search,
+            $options: 'i',
+          },
+        },
+        {
+          company: {
+            $regex: search,
+            $options: 'i',
+          },
+        },
+        {
+          phone: {
+            $regex: search,
+            $options: 'i',
+          },
+        },
       ];
     }
 
@@ -67,7 +110,8 @@ export class LeadServices {
         .find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(Number(limit)),
+        .limit(Number(limit))
+        .lean(),
 
       this.leadModel.countDocuments(filter),
     ]);
@@ -90,7 +134,7 @@ export class LeadServices {
       throw new BadRequestException('Invalid lead id');
     }
 
-    const lead = await this.leadModel.findById(id);
+    const lead = await this.leadModel.findById(id).lean();
 
     if (!lead) {
       throw new NotFoundException('Lead not found');
@@ -104,16 +148,26 @@ export class LeadServices {
   // =========================================
 
   async create(dto: CreateLeadDto) {
-    // Optional duplicate email check
+    // Duplicate email check
+
     const existingLead = await this.leadModel.findOne({
-      email: dto.email,
+      email: dto.email.toLowerCase(),
     });
 
     if (existingLead) {
-      throw new BadRequestException('Lead with this email already exists');
+      throw new BadRequestException(
+        'Lead with this email already exists',
+      );
     }
 
-    return this.leadModel.create(dto);
+    const lead = await this.leadModel.create({
+      ...dto,
+      email: dto.email.toLowerCase(),
+    });
+
+    await this.syncLeadNextFollowUp(lead);
+
+    return lead;
   }
 
   // =========================================
@@ -121,19 +175,57 @@ export class LeadServices {
   // =========================================
 
   async update(id: string, dto: UpdateLeadDto) {
+    console.log("Updating lead with id:", id);
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid lead id');
+    }
+    const existingProject = await this.projectModel.findOne({
+      lead: id,
+    });
+
+    if (
+      existingProject &&
+      dto.status &&
+      dto.status !== 'Won'
+    ) {
+      throw new BadRequestException(
+        'Cannot move lead out of Won because a project already exists',
+      );
+    }
+    // Duplicate email check on update
+
+    if (dto.email) {
+      const existingLead = await this.leadModel.findOne({
+        email: dto.email.toLowerCase(),
+        _id: {
+          $ne: id,
+        },
+      });
+
+      if (existingLead) {
+        throw new BadRequestException(
+          'Lead with this email already exists',
+        );
+      }
     }
 
     // Remove undefined fields
     const cleanDto = Object.fromEntries(
-      Object.entries(dto).filter((entry) => entry[1] !== undefined),
+      Object.entries(dto).filter(
+        ([_, value]) => value !== undefined,
+      ),
     );
+
+    // Normalize email
+    if (cleanDto.email) {
+      cleanDto.email = String(cleanDto.email).toLowerCase();
+    }
 
     const updatedLead = await this.leadModel.findByIdAndUpdate(
       id,
       {
         $set: cleanDto,
+
         $currentDate: {
           lastActivityAt: true,
         },
@@ -145,6 +237,11 @@ export class LeadServices {
 
     if (!updatedLead) {
       throw new NotFoundException('Lead not found');
+    }
+
+    await this.syncLeadNextFollowUp(updatedLead);
+    if (dto.status) {
+      await this.syncStatusFollowUp(updatedLead);
     }
 
     return updatedLead;
@@ -159,12 +256,25 @@ export class LeadServices {
       throw new BadRequestException('Invalid lead id');
     }
 
+    const existingProject = await this.projectModel.findOne({
+      lead: id,
+    });
+
+    if (
+      existingProject &&
+      dto.status !== 'Won'
+    ) {
+      throw new BadRequestException(
+        'Cannot move lead out of Won because a project already exists',
+      );
+    }
     const updatedLead = await this.leadModel.findByIdAndUpdate(
       id,
       {
         $set: {
           status: dto.status,
         },
+
         $currentDate: {
           lastActivityAt: true,
         },
@@ -178,6 +288,25 @@ export class LeadServices {
       throw new NotFoundException('Lead not found');
     }
 
+    // =========================================
+    // Auto Create Project When Won
+    // =========================================
+
+    if (dto.status === 'Won') {
+      const existingProject = await this.projectModel.findOne({
+        lead: updatedLead._id,
+      });
+
+      if (!existingProject) {
+        await this.projectModel.create({
+          lead: updatedLead._id,
+        });
+      }
+    }
+
+    await this.syncLeadNextFollowUp(updatedLead);
+    await this.syncStatusFollowUp(updatedLead);
+
     return updatedLead;
   }
 
@@ -190,6 +319,18 @@ export class LeadServices {
       throw new BadRequestException('Invalid lead id');
     }
 
+    // Prevent deleting lead linked to projects
+
+    const projectExists = await this.projectModel.exists({
+      lead: new Types.ObjectId(id),
+    });
+
+    if (projectExists) {
+      throw new BadRequestException(
+        'Cannot delete lead linked to projects',
+      );
+    }
+
     const deletedLead = await this.leadModel.findByIdAndDelete(id);
 
     if (!deletedLead) {
@@ -199,5 +340,79 @@ export class LeadServices {
     return {
       message: 'Lead deleted successfully',
     };
+  }
+
+  private async syncLeadNextFollowUp(lead: LeadDocument) {
+    const leadId = lead._id as Types.ObjectId;
+    const filter = {
+      lead: leadId,
+      source: LEAD_NEXT_FOLLOWUP_SOURCE,
+      status: { $ne: 'Completed' },
+    };
+
+    if (TERMINAL_LEAD_STATUSES.has(lead.status) || !lead.nextFollowUp) {
+      await this.followUpModel.deleteMany(filter);
+      return;
+    }
+
+    await this.followUpModel.findOneAndUpdate(
+      filter,
+      {
+        $set: {
+          lead: leadId,
+          owner: lead.assignedTo,
+          type: 'Call',
+          status:
+            new Date(lead.nextFollowUp).getTime() < Date.now()
+              ? 'Overdue'
+              : 'Pending',
+          priority: lead.priority,
+          dueAt: lead.nextFollowUp,
+          source: LEAD_NEXT_FOLLOWUP_SOURCE,
+          notes: lead.notes,
+          nextAction: lead.nextAction,
+        },
+      },
+      { new: true, upsert: true },
+    );
+  }
+
+  private async syncStatusFollowUp(lead: LeadDocument) {
+    const leadId = lead._id as Types.ObjectId;
+    const filter = {
+      lead: leadId,
+      source: LEAD_STATUS_FOLLOWUP_SOURCE,
+      status: { $ne: 'Completed' },
+    };
+
+    if (TERMINAL_LEAD_STATUSES.has(lead.status)) {
+      await this.followUpModel.deleteMany(filter);
+      return;
+    }
+
+    if (lead.nextFollowUp) {
+      await this.followUpModel.deleteMany(filter);
+      return;
+    }
+
+    const dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await this.followUpModel.findOneAndUpdate(
+      filter,
+      {
+        $set: {
+          lead: leadId,
+          owner: lead.assignedTo,
+          type: 'Call',
+          status: new Date(dueAt).getTime() < Date.now() ? 'Overdue' : 'Pending',
+          priority: lead.priority,
+          dueAt,
+          source: LEAD_STATUS_FOLLOWUP_SOURCE,
+          notes: `Follow up after lead moved to ${lead.status}`,
+          nextAction: lead.nextAction || `Review ${lead.status} lead`,
+        },
+      },
+      { new: true, upsert: true },
+    );
   }
 }

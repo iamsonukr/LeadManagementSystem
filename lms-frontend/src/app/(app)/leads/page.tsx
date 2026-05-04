@@ -281,12 +281,33 @@ export default function LeadsPage() {
                     <div className="space-y-2">
                       <select
                         value={lead.status}
-                        onChange={(event) => dispatch(updateLeadStatus({ id: lead.id, status: event.target.value as LeadStatus }))}
-                        className="min-w-40 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 outline-none"
+                        disabled={lead.status === 'Won'}
+                        onChange={(event) =>
+                          dispatch(
+                            updateLeadStatus({
+                              id: lead.id,
+                              status: event.target.value as LeadStatus,
+                            }),
+                          )
+                        }
+                        className={`min-w-40 rounded-full border px-3 py-1 text-xs font-medium outline-none ${lead.status === 'Won'
+                            ? 'cursor-not-allowed border-gray-100 bg-gray-100 text-gray-400'
+                            : 'border-gray-200 bg-white text-gray-700'
+                          }`}
                       >
-                        {leadStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+                        {leadStatusOptions.map((status) => (
+                          <option
+                            key={status}
+                            value={status}
+                          >
+                            {status}
+                          </option>
+                        ))}
                       </select>
-                      {/* <div className="text-xs text-gray-400">{lead.stageProbability}% close probability</div> */}
+
+                      {/* <div className="text-xs text-gray-400">
+      {lead.stageProbability}% close probability
+    </div> */}
                     </div>
                   </td>
                   <td className="px-4 py-4 text-sm font-semibold text-gray-900">{formatCurrency(lead.leadValue || lead.budget, lead.currency)}</td>

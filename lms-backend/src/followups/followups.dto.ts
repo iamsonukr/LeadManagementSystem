@@ -30,7 +30,7 @@ export class CreateFollowUpDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsIn(['Demo', 'Proposal', 'Call', 'Email', 'Meeting'])
+  @IsIn(['Demo', 'Proposal', 'Call', 'Email', 'Meeting', 'WhatsApp', 'Other'])
   type?: string;
 
   @ApiPropertyOptional()
@@ -51,6 +51,11 @@ export class CreateFollowUpDto {
   @IsOptional()
   @IsDateString()
   completedAt?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  source?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
