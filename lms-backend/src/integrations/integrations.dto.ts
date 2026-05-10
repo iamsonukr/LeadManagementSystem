@@ -11,4 +11,3 @@ export class IntegrationLeadQueryDto {
   @Max(200)
   limit?: number = 50;
 }
-

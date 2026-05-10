@@ -1,38 +1,132 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
 import { Exclude } from 'class-transformer';
+
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+
+import { Document, Types } from 'mongoose';
+
+import { Department } from '../department/department.entity';
 
 export type UserDocument = User & Document;
 
-@Schema({ timestamps: true }) // createdAt & updatedAt
+@Schema({
+  timestamps: true,
+  collection: 'users',
+})
 export class User {
-  @Prop({ required: true })
-  name!: string;
+  // =========================================
+  // Basic Info
+  // =========================================
 
-  @Prop({ required: true, unique: true, trim: true, lowercase: true })
+  @Prop({
+    required: true,
+    trim: true,
+  })
+  firstName!: string;
+
+  @Prop({
+    required: true,
+    trim: true,
+  })
+  lastName!: string;
+
+  @Prop({
+    required: true,
+    unique: true,
+    trim: true,
+    lowercase: true,
+  })
   email!: string;
 
-  @Prop({ required: true, select: false })
+  @Prop({
+    required: true,
+    select: false,
+  })
   @Exclude()
   password!: string;
 
   @Prop({
-    default: 'Sales Executive',
+    trim: true,
+    default: null,
+  })
+  phone?: string;
+
+  // =========================================
+  // Organization
+  // =========================================
+
+  @Prop({
+    unique: true,
+    sparse: true,
+    trim: true,
+  })
+  employeeId?: string;
+
+  @Prop({
     enum: ['Admin', 'Sales Manager', 'Sales Executive'],
+    default: 'Sales Executive',
   })
   role!: string;
 
-  @Prop({ type: String, default: null })
-  department: string | null = null;
+  @Prop({
+    type: Types.ObjectId,
+    ref: Department.name,
+    default: null,
+  })
+  department?: Types.ObjectId;
 
-  @Prop({ type: String, default: null })
-  phone: string | null = null;
+  @Prop({
+    enum: ['Full-time', 'Part-time', 'Contract', 'Intern'],
+    default: 'Full-time',
+  })
+  employmentType!: string;
 
-  @Prop({ default: 'Active', enum: ['Active', 'Inactive'] })
+  @Prop()
+  joiningDate?: Date;
+
+  @Prop({
+    trim: true,
+  })
+  workLocation?: string;
+
+  @Prop({
+    type: Types.ObjectId,
+    ref: User.name,
+  })
+  reportingManager?: Types.ObjectId;
+
+  // =========================================
+  // Skills & Work
+  // =========================================
+
+  @Prop({
+    type: [String],
+    default: [],
+  })
+  skills?: string[];
+
+  @Prop({
+    trim: true,
+  })
+  currentProject?: string;
+
+  // =========================================
+  // Status
+  // =========================================
+
+  @Prop({
+    enum: ['Active', 'Inactive', 'On Leave', 'Resigned'],
+    default: 'Active',
+  })
   status!: string;
 
-  @Prop({ default: 0 })
-  leads: number = 0;
+  // =========================================
+  // Analytics
+  // =========================================
+
+  @Prop({
+    default: 0,
+  })
+  leads!: number;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

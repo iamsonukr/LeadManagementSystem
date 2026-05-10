@@ -76,7 +76,9 @@ export class IntegrationsService {
     const response = await fetch(requestUrl, {
       headers: {
         Accept: 'application/json',
-        ...(provider.token ? { Authorization: `Bearer ${provider.token}` } : {}),
+        ...(provider.token
+          ? { Authorization: `Bearer ${provider.token}` }
+          : {}),
       },
     });
 
@@ -87,21 +89,28 @@ export class IntegrationsService {
     }
 
     const payload: unknown = await response.json();
-    return this.extractLeads(payload).slice(0, limit).map((lead) => {
-      const source = this.platformToSource(platform);
-      return {
-        name: this.asText(lead.name ?? lead.fullName, 'Unknown Lead'),
-        email: this.asText(lead.email),
-        phone: this.asText(lead.phone ?? lead.mobile ?? lead.contactNumber),
-        company: this.asText(lead.company ?? lead.companyName, 'Unknown Company'),
-        source,
-        message: this.asText(lead.message ?? lead.notes),
-        services: Array.isArray(lead.services)
-          ? lead.services.map((value: unknown) => this.asText(value)).filter(Boolean)
-          : this.asText(lead.services),
-        createdAt: this.asText(lead.createdAt, new Date().toISOString()),
-      };
-    });
+    return this.extractLeads(payload)
+      .slice(0, limit)
+      .map((lead) => {
+        const source = this.platformToSource(platform);
+        return {
+          name: this.asText(lead.name ?? lead.fullName, 'Unknown Lead'),
+          email: this.asText(lead.email),
+          phone: this.asText(lead.phone ?? lead.mobile ?? lead.contactNumber),
+          company: this.asText(
+            lead.company ?? lead.companyName,
+            'Unknown Company',
+          ),
+          source,
+          message: this.asText(lead.message ?? lead.notes),
+          services: Array.isArray(lead.services)
+            ? lead.services
+                .map((value: unknown) => this.asText(value))
+                .filter(Boolean)
+            : this.asText(lead.services),
+          createdAt: this.asText(lead.createdAt, new Date().toISOString()),
+        };
+      });
   }
 
   private extractLeads(payload: unknown): Array<Record<string, unknown>> {
@@ -173,4 +182,3 @@ export class IntegrationsService {
     return !!value && typeof value === 'object';
   }
 }
-

@@ -6,7 +6,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   app.setGlobalPrefix('api');
 
   app.useGlobalInterceptors(new TransformInterceptor());
@@ -29,7 +29,7 @@ async function bootstrap() {
     console.log(`${req.method} ${req.originalUrl}`);
     next();
   });
-  
+
   // Swagger / OpenAPI  It creates a Swagger document with a title, description, and version.
   const config = new DocumentBuilder()
     .setTitle('CRM API')
@@ -38,7 +38,7 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  
+
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT ?? 4000;

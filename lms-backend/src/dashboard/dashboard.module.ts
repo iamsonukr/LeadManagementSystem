@@ -7,6 +7,7 @@ import { CallLog, CallLogSchema } from '../calls/calls.entity';
 import { FollowUp, FollowUpSchema } from '../followups/followups.entity';
 
 import { Project, ProjectSchema } from '../projects/projects.entity';
+import { User, UserSchema } from '../users/user.entity';
 
 import { DashboardController } from './dashboard.controller';
 
@@ -31,6 +32,10 @@ import { DashboardController } from './dashboard.controller';
       {
         name: Project.name,
         schema: ProjectSchema,
+      },
+      {
+        name: User.name,
+        schema: UserSchema,
       },
     ]),
   ],

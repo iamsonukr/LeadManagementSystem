@@ -14,7 +14,7 @@ const getErrorMessage = (err: unknown, fallback: string) => {
 
 export const fetchLeads = createAsyncThunk('leads/fetchAll', async (filters: LeadFilters = {}, { rejectWithValue }) => {
   try { return await leadsService.getAll(filters); }
-  catch (err: unknown) { return rejectWithValue(err instanceof Error ? err.message : 'Failed'); }
+  catch (err: unknown) { return rejectWithValue(getErrorMessage(err, 'Failed to fetch leads')); }
 });
 
 export const fetchLeadById = createAsyncThunk('leads/fetchById', async (id: string, { rejectWithValue }) => {
@@ -24,7 +24,7 @@ export const fetchLeadById = createAsyncThunk('leads/fetchById', async (id: stri
 
 export const createLeadThunk = createAsyncThunk('leads/create', async (payload: Partial<Lead>, { rejectWithValue }) => {
   try { return await leadsService.create(payload); }
-  catch (err: unknown) { return rejectWithValue(err instanceof Error ? err.message : 'Failed'); }
+  catch (err: unknown) { return rejectWithValue(getErrorMessage(err, 'Failed to create lead')); }
 });
 
 export const addLead = createLeadThunk;
@@ -34,9 +34,9 @@ export const updateLeadThunk = createAsyncThunk('leads/update', async ({ id, pay
   catch { return rejectWithValue('Failed to update'); }
 });
 
-export const updateLead = createAsyncThunk('leads/updateFromPayload', async (payload: Lead, { rejectWithValue }) => {
+export const updateLead = createAsyncThunk('leads/updateFromPayload', async (payload: Partial<Lead> & { id: string }, { rejectWithValue }) => {
   try { return await leadsService.update(payload.id, payload); }
-  catch { return rejectWithValue('Failed to update'); }
+  catch (err: unknown) { return rejectWithValue(getErrorMessage(err, 'Failed to update lead')); }
 });
 
 export const patchLeadStatus = createAsyncThunk('leads/patchStatus', async ({ id, status }: { id: string; status: LeadStatus }, { rejectWithValue }) => {

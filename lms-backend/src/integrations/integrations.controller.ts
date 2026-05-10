@@ -3,11 +3,15 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { IntegrationLeadQueryDto } from './integrations.dto';
 import { IntegrationsService } from './integrations.service';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { ROLES } from '../auth/roles';
 
 @ApiTags('Integrations')
 @ApiBearerAuth()
 @Controller('integrations')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Roles(ROLES.ADMIN, ROLES.MANAGER)
 export class IntegrationsController {
   constructor(private readonly integrationsService: IntegrationsService) {}
 
@@ -31,4 +35,3 @@ export class IntegrationsController {
     return this.integrationsService.fetchLinkedinLeads(query.limit);
   }
 }
-

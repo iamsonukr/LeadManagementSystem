@@ -4,13 +4,15 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard, Users, UserCircle, Building2, CheckSquare,
-  Phone, BarChart2, UserCog, Settings, Bell, CalendarClock, X
+  LayoutDashboard, Users, CheckSquare,
+  Phone, BarChart2, UserCog, Settings, CalendarClock, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { setSidebarOpen, toggleSidebar } from '@/store/slices/uiSlice';
+import { useAuth } from '@/context/AuthContext';
+import { canAccessPath } from '@/lib/rbac';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -22,7 +24,7 @@ const navItems = [
   { href: '/projects', label: 'Projects', icon: CheckSquare },
   // { href: '/tasks', label: 'Tasks', icon: CheckSquare },
   { href: '/reports', label: 'Reports', icon: BarChart2 },
-  { href: '/team', label: 'Teams', icon: UserCog },
+  { href: '/team', label: 'Departments', icon: UserCog },
   { href: '/users', label: 'Users', icon: UserCog },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
@@ -31,6 +33,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const dispatch = useDispatch();
   const sidebarOpen = useSelector((state: RootState) => state.ui.sidebarOpen);
+  const { user } = useAuth();
 
   useEffect(() => {
     const syncSidebarForViewport = () => {
@@ -82,7 +85,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-3 overflow-y-auto">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {navItems.filter((item) => canAccessPath(user, item.href)).map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + '/');
           return (
             <Link

@@ -1,5 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
+import { User } from '../users/user.entity';
+import { Department } from '../department/department.entity';
 
 export type LeadDocument = Lead & Document;
 
@@ -37,11 +39,11 @@ export class Lead {
   @Prop({ default: 'Medium' })
   priority!: string;
 
-  @Prop()
-  assignedTo?: string;
+  @Prop({ type: Types.ObjectId, ref: User.name })
+  assignedTo?: Types.ObjectId;
 
-  @Prop()
-  department?: string;
+  @Prop({ type: Types.ObjectId, ref: Department.name })
+  department?: Types.ObjectId;
 
   // =========================
   // Sales Data

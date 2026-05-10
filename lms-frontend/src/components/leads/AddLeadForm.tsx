@@ -15,6 +15,11 @@ export interface LeadFormData {
   expectedCloseDate: string; services: string; nextAction: string; reminder: string; tags: string; additionalInfo: string;
 }
 
+export interface LeadAssigneeOption {
+  id: string;
+  name: string;
+}
+
 const defaultForm: LeadFormData = {
   fullName: '', phoneNumber: '', email: '', company: '',
   leadSource: '', leadStatus: 'New', priority: 'Medium', leadType: '',
@@ -59,13 +64,27 @@ interface AddLeadFormProps {
   onReset: () => void;
   initialData?: Partial<LeadFormData>;
   mode?: 'add' | 'edit';
-  teamMembers?: string[];
+  teamMembers?: Array<string | LeadAssigneeOption>;
+  canAssignLead?: boolean;
 }
 
-export default function AddLeadForm({ onSave, onReset, initialData, mode = 'add', teamMembers = [] }: AddLeadFormProps) {
+export default function AddLeadForm({
+  onSave,
+  onReset,
+  initialData,
+  mode = 'add',
+  teamMembers = [],
+  canAssignLead = true,
+}: AddLeadFormProps) {
   const [form, setForm] = useState<LeadFormData>({ ...defaultForm, ...initialData });
   const isEdit = mode === 'edit';
   const todayDate = getTodayDateInputValue();
+  const assigneeOptions = teamMembers.map((member) =>
+    typeof member === 'string' ? { id: member, name: member } : member,
+  );
+  const selectedAssigneeName =
+    assigneeOptions.find((member) => member.id === form.assignedTo)?.name ||
+    form.assignedTo;
 
   const set = (key: keyof LeadFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const val = e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value;
@@ -84,6 +103,16 @@ export default function AddLeadForm({ onSave, onReset, initialData, mode = 'add'
   const handleReset = () => { setForm({ ...defaultForm, ...initialData }); onReset(); };
 
   const handleSave = () => {
+    if (!form.fullName.trim() || !form.email.trim()) {
+      alert('Full name and email are required.');
+      return;
+    }
+
+    if (canAssignLead && !form.assignedTo.trim()) {
+      alert('Please select a team member for this lead.');
+      return;
+    }
+
     if (form.followUpDate && form.followUpDate < todayDate) {
       alert('Next follow-up date cannot be in the past.');
       return;
@@ -138,7 +167,7 @@ export default function AddLeadForm({ onSave, onReset, initialData, mode = 'add'
               </Field>
             </div>
             <div className="col-span-2">
-              <Field label="Email Address">
+              <Field label="Email Address" required>
                 <div className="relative">
                   <Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
                   <input className={cn(inputCls, 'pl-8')} placeholder="Enter email address" value={form.email} onChange={set('email')} type="email" />
@@ -311,9 +340,18 @@ export default function AddLeadForm({ onSave, onReset, initialData, mode = 'add'
             <Field label="Next Follow-up Date"><input className={inputCls} type="date" min={todayDate} value={form.followUpDate} onChange={set('followUpDate')} /></Field>
             <Field label="Follow-up Time"><input className={inputCls} type="time" value={form.followUpTime} onChange={set('followUpTime')} /></Field>
             <Field label="Assigned To" required>
-              <select className={selectCls} value={form.assignedTo} onChange={set('assignedTo')}>
+              <select
+                className={selectCls}
+                value={form.assignedTo}
+                onChange={set('assignedTo')}
+                disabled={!canAssignLead}
+              >
                 <option value="">Select team member</option>
-                {teamMembers.map(m => <option key={m}>{m}</option>)}
+                {assigneeOptions.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
               </select>
             </Field>
             <Field label="Department">
@@ -359,7 +397,7 @@ export default function AddLeadForm({ onSave, onReset, initialData, mode = 'add'
               { label: 'Lead Status', value: form.leadStatus || 'New', cls: 'bg-blue-100 text-blue-700' },
               { label: 'Priority', value: form.priority || 'Medium', cls: 'bg-yellow-100 text-yellow-700' },
               { label: 'Source', value: form.leadSource || 'Not Selected', cls: 'bg-gray-100 text-gray-600' },
-              { label: 'Assigned To', value: form.assignedTo || 'Not Assigned', cls: 'bg-gray-100 text-gray-600' },
+              { label: 'Assigned To', value: selectedAssigneeName || 'Not Assigned', cls: 'bg-gray-100 text-gray-600' },
             ].map(({ label, value, cls }) => (
               <div key={label} className="text-center">
                 <div className="text-xs text-gray-500 mb-1.5 flex items-center gap-1 justify-center">

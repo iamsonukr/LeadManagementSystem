@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsArray,
   IsDateString,
+  IsMongoId,
   IsIn,
   IsObject,
 } from 'class-validator';
@@ -85,12 +86,12 @@ export class CreateLeadDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsMongoId()
   assignedTo?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsMongoId()
   department?: string;
 
   // Sales Data
@@ -204,7 +205,7 @@ export class LeadFilterDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsMongoId()
   assignedTo?: string;
 
   @ApiPropertyOptional()

@@ -2,17 +2,25 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { canAccessPath } from '@/lib/rbac';
 
 export default function RouteGuard({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace('/login');
+      return;
     }
-  }, [isAuthenticated, isLoading, router]);
+
+    if (!isLoading && isAuthenticated && !canAccessPath(user, pathname)) {
+      router.replace('/dashboard');
+    }
+  }, [isAuthenticated, isLoading, pathname, router, user]);
 
   if (isLoading) {
     return (
@@ -35,6 +43,6 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
     );
   }
 
-  if (!isAuthenticated) return null;
+  if (!isAuthenticated || !canAccessPath(user, pathname)) return null;
   return <>{children}</>;
 }

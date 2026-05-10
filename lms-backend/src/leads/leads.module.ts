@@ -7,15 +7,10 @@ import { LeadController } from './leads.controller';
 
 import { LeadServices } from './leads.services';
 
-import {
-  Project,
-  ProjectSchema,
-} from '../projects/projects.entity';
-import {
-  FollowUp,
-  FollowUpSchema,
-} from '../followups/followups.entity';
+import { Project, ProjectSchema } from '../projects/projects.entity';
+import { FollowUp, FollowUpSchema } from '../followups/followups.entity';
 import { CallLog, CallLogSchema } from '../calls/calls.entity';
+import { User, UserSchema } from '../users/user.entity';
 
 @Module({
   imports: [
@@ -35,6 +30,10 @@ import { CallLog, CallLogSchema } from '../calls/calls.entity';
       {
         name: CallLog.name,
         schema: CallLogSchema,
+      },
+      {
+        name: User.name,
+        schema: UserSchema,
       },
     ]),
   ],

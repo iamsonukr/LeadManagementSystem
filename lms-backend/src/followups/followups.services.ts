@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -7,18 +8,30 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, QueryFilter, Types } from 'mongoose';
 
 import { FollowUp, FollowUpDocument } from './followups.entity';
+import { Lead, LeadDocument } from '../leads/leads.entity';
+import { User, UserDocument } from '../users/user.entity';
 import {
   CreateFollowUpDto,
   FollowUpFilterDto,
   UpdateFollowUpDto,
 } from './followups.dto';
 import { assertDateIsTodayOrFuture } from '../common/date-validation';
+import {
+  isAdmin,
+  isManager,
+  RequestUser,
+  userAssignmentKeys,
+} from '../auth/roles';
 
 @Injectable()
 export class FollowupsServices {
   constructor(
     @InjectModel(FollowUp.name)
     private followUpModel: Model<FollowUpDocument>,
+    @InjectModel(Lead.name)
+    private leadModel: Model<LeadDocument>,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
   ) {}
 
   private assertObjectId(id: string, label: string) {
@@ -27,19 +40,82 @@ export class FollowupsServices {
     }
   }
 
-  async create(dto: CreateFollowUpDto) {
+  private async getAssignmentKeys(user: RequestUser) {
+    if (isAdmin(user)) {
+      return null;
+    }
+
+    const ownKeys = userAssignmentKeys(user);
+    if (!isManager(user)) {
+      return ownKeys;
+    }
+
+    const teamMembers = await this.userModel
+      .find({ reportingManager: new Types.ObjectId(user.id) })
+      .select('firstName lastName email')
+      .lean();
+
+    return [
+      ...ownKeys,
+      ...teamMembers.flatMap((member) => {
+        const name = `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim();
+        return [String(member._id), member.email, name].filter(Boolean);
+      }),
+    ];
+  }
+
+  private async getAccessibleLeadIds(user: RequestUser) {
+    const assignmentKeys = await this.getAssignmentKeys(user);
+    if (!assignmentKeys) {
+      return null;
+    }
+
+    const leads = await this.leadModel
+      .find({ assignedTo: { $in: [...new Set(assignmentKeys)] } })
+      .select('_id')
+      .lean();
+
+    return leads.map((lead) => lead._id as Types.ObjectId);
+  }
+
+  private async assertCanAccessFollowUp(id: string, user: RequestUser) {
+    const leadIds = await this.getAccessibleLeadIds(user);
+    const followup = await this.followUpModel
+      .findOne({
+        _id: new Types.ObjectId(id),
+        ...(leadIds ? { lead: { $in: leadIds } } : {}),
+      })
+      .select('_id')
+      .lean();
+
+    if (!followup) {
+      throw new ForbiddenException('You do not have access to this follow-up');
+    }
+  }
+
+  async create(dto: CreateFollowUpDto, user: RequestUser) {
     this.assertObjectId(dto.lead, 'lead');
     assertDateIsTodayOrFuture(dto.dueAt, 'Follow-up date');
+    const accessibleLeadIds = await this.getAccessibleLeadIds(user);
+    const leadObjectId = new Types.ObjectId(dto.lead);
+
+    if (
+      accessibleLeadIds &&
+      !accessibleLeadIds.some((id) => id.equals(leadObjectId))
+    ) {
+      throw new ForbiddenException('You do not have access to this lead');
+    }
 
     const followup = await this.followUpModel.create({
       ...dto,
-      lead: new Types.ObjectId(dto.lead),
+      lead: leadObjectId,
+      owner: dto.owner || user.name || user.email,
     });
 
     return followup.populate('lead');
   }
 
-  async findAll(query: FollowUpFilterDto) {
+  async findAll(query: FollowUpFilterDto, user: RequestUser) {
     const {
       lead,
       status,
@@ -52,10 +128,20 @@ export class FollowupsServices {
       limit = 10,
     } = query;
     const filter: QueryFilter<FollowUpDocument> = {};
+    const accessibleLeadIds = await this.getAccessibleLeadIds(user);
+
+    if (accessibleLeadIds) {
+      filter.lead = { $in: accessibleLeadIds };
+    }
 
     if (lead) {
       this.assertObjectId(lead, 'lead');
-      filter.lead = new Types.ObjectId(lead);
+      const requestedLead = new Types.ObjectId(lead);
+      filter.lead = accessibleLeadIds
+        ? {
+            $in: accessibleLeadIds.filter((id) => id.equals(requestedLead)),
+          }
+        : requestedLead;
     }
     if (status) filter.status = status;
     if (priority) filter.priority = priority;
@@ -87,8 +173,9 @@ export class FollowupsServices {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, user: RequestUser) {
     this.assertObjectId(id, 'followup');
+    await this.assertCanAccessFollowUp(id, user);
     const followup = await this.followUpModel.findById(id).populate('lead');
     if (!followup) {
       throw new NotFoundException('FollowUp not found');
@@ -96,8 +183,9 @@ export class FollowupsServices {
     return followup;
   }
 
-  async update(id: string, dto: UpdateFollowUpDto) {
+  async update(id: string, dto: UpdateFollowUpDto, user: RequestUser) {
     this.assertObjectId(id, 'followup');
+    await this.assertCanAccessFollowUp(id, user);
     assertDateIsTodayOrFuture(dto.dueAt, 'Follow-up date');
 
     const clean = this.cleanDto(dto);
@@ -115,8 +203,9 @@ export class FollowupsServices {
     return updated;
   }
 
-  async updateStatus(id: string, status: string) {
+  async updateStatus(id: string, status: string, user: RequestUser) {
     this.assertObjectId(id, 'followup');
+    await this.assertCanAccessFollowUp(id, user);
     const updated = await this.followUpModel
       .findByIdAndUpdate(id, { $set: { status } }, { new: true })
       .populate('lead');
@@ -126,8 +215,9 @@ export class FollowupsServices {
     return updated;
   }
 
-  async remove(id: string) {
+  async remove(id: string, user: RequestUser) {
     this.assertObjectId(id, 'followup');
+    await this.assertCanAccessFollowUp(id, user);
     const deleted = await this.followUpModel.findByIdAndDelete(id);
 
     if (!deleted) {

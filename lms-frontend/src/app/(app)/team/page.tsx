@@ -14,15 +14,6 @@ import {
 import { TeamMemberRecord } from "@/types";
 import { PenLine, Plus, Trash2 } from "lucide-react";
 
-function formatJoiningDate(value: string) {
-  if (!value) return "-";
-  return new Intl.DateTimeFormat("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(`${value}T00:00:00`));
-}
-
 function memberToFormData(member: TeamMemberRecord): TeamFormData {
   return {
     fullName: member.fullName,
@@ -95,7 +86,7 @@ export default function TeamPage() {
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Team Members</h1>
+          <h1 className="text-xl font-bold text-gray-900">Departments</h1>
           {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
         </div>
 
@@ -105,24 +96,18 @@ export default function TeamPage() {
           disabled={isSubmitting}
         >
           <Plus size={14} />
-          Add Member
+          Add Department
         </button>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px]">
+          <table className="w-full min-w-[640px]">
             <thead className="border-b border-gray-100 bg-gray-50/60">
               <tr>
                 {[
                   "Name",
-                  "Role",
-                  "Email",
-                  "Employee ID",
-                  "Department",
-                  "Location",
-                  "Joining Date",
-                  "Current Project",
+                  "Description",
                   "Status",
                   "Actions",
                 ].map((header) => (
@@ -148,27 +133,14 @@ export default function TeamPage() {
                     </div>
                   </td>
 
-                  <td className="px-4 py-3">
-                    <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
-                      {member.role}
-                    </span>
-                  </td>
-
-                  <td className="px-4 py-3 text-sm text-gray-600">{member.email}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{member.employeeId || "-"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{member.department}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{member.workLocation || "-"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{formatJoiningDate(member.joiningDate)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{member.currentProject}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{member.currentProject || "-"}</td>
 
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         member.status === "Active"
                           ? "bg-green-50 text-green-700"
-                          : member.status === "On Leave"
-                            ? "bg-yellow-50 text-yellow-700"
-                            : "bg-red-50 text-red-700"
+                          : "bg-red-50 text-red-700"
                       }`}
                     >
                       {member.status}
@@ -197,15 +169,15 @@ export default function TeamPage() {
               ))}
               {!isLoading && members.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-sm text-gray-400">
-                    No team members found.
+                  <td colSpan={4} className="px-4 py-12 text-center text-sm text-gray-400">
+                    No departments found.
                   </td>
                 </tr>
               )}
               {isLoading && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-sm text-gray-400">
-                    Loading team members...
+                  <td colSpan={4} className="px-4 py-12 text-center text-sm text-gray-400">
+                    Loading departments...
                   </td>
                 </tr>
               )}
@@ -214,14 +186,14 @@ export default function TeamPage() {
         </div>
       </div>
 
-      <Modal title="Add Team Member" open={open} onClose={() => setOpen(false)} size="lg">
+      <Modal title="Add Department" open={open} onClose={() => setOpen(false)} size="lg">
         <AddTeamMemberForm
           onSave={handleAddMember}
           onClose={() => setOpen(false)}
         />
       </Modal>
 
-      <Modal title="Edit Team Member" open={!!editingMember} onClose={() => setEditingMember(null)} size="lg">
+      <Modal title="Edit Department" open={!!editingMember} onClose={() => setEditingMember(null)} size="lg">
         {editingMember && (
           <AddTeamMemberForm
             mode="edit"
@@ -234,8 +206,8 @@ export default function TeamPage() {
 
       <ConfirmDialog
         open={!!deletingMember}
-        title="Delete Team Member"
-        description={`Delete ${deletingMember?.fullName ?? 'this team member'} from the company directory? Existing leads that already reference this name will keep their current text value.`}
+        title="Delete Department"
+        description={`Delete ${deletingMember?.fullName ?? 'this department'}? Existing records that already reference this department will keep their current text value.`}
         isWorking={isSubmitting}
         onConfirm={handleDeleteMember}
         onClose={() => setDeletingMember(null)}

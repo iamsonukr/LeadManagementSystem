@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 
 import { InjectModel } from '@nestjs/mongoose';
@@ -21,6 +22,15 @@ import { Project, ProjectDocument } from '../projects/projects.entity';
 import { FollowUp, FollowUpDocument } from '../followups/followups.entity';
 import { CallLog, CallLogDocument } from '../calls/calls.entity';
 import { assertDateIsTodayOrFuture } from '../common/date-validation';
+import { User, UserDocument } from '../users/user.entity';
+import {
+  isAdmin,
+  isManager,
+  isSalesExecutive,
+  RequestUser,
+  userAssignmentKeys,
+  userAssignmentIds,
+} from '../auth/roles';
 
 const LEAD_NEXT_FOLLOWUP_SOURCE = 'lead-next-followup';
 const LEAD_STATUS_FOLLOWUP_SOURCE = 'lead-status-followup';
@@ -40,13 +50,50 @@ export class LeadServices {
 
     @InjectModel(CallLog.name)
     private readonly callLogModel: Model<CallLogDocument>,
-  ) { }
+
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
+  ) {}
+
+  private async getAccessibleLeadFilter(user: RequestUser) {
+    if (isAdmin(user)) {
+      return {};
+    }
+
+    const ownKeys = userAssignmentIds(user);
+
+    if (isManager(user)) {
+      const teamMembers = await this.userModel
+        .find({ reportingManager: new Types.ObjectId(user.id) })
+        .select('_id')
+        .lean();
+
+      const teamKeys = teamMembers.map((member) => member._id);
+
+      return { assignedTo: { $in: [...ownKeys, ...teamKeys] } };
+    }
+
+    return { assignedTo: { $in: ownKeys } };
+  }
+
+  private async assertCanAccessLead(id: string, user: RequestUser) {
+    const accessFilter = await this.getAccessibleLeadFilter(user);
+    const lead = await this.leadModel
+      .findOne({ _id: new Types.ObjectId(id), ...accessFilter })
+      .lean();
+
+    if (!lead) {
+      throw new ForbiddenException('You do not have access to this lead');
+    }
+
+    return lead;
+  }
 
   // =========================================
   // Get All Leads
   // =========================================
 
-  async findAll(query: LeadFilterDto) {
+  async findAll(query: LeadFilterDto, user: RequestUser) {
     const {
       status,
       source,
@@ -57,7 +104,9 @@ export class LeadServices {
       limit = 10,
     } = query;
 
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = await this.getAccessibleLeadFilter(
+      user,
+    );
 
     // Filters
 
@@ -74,7 +123,21 @@ export class LeadServices {
     }
 
     if (assignedTo) {
-      filter.assignedTo = assignedTo;
+      const scopedAssignment = filter.assignedTo as
+        | { $in?: Types.ObjectId[] }
+        | Types.ObjectId
+        | undefined;
+
+      if (
+        scopedAssignment &&
+        typeof scopedAssignment === 'object' && '$in' in scopedAssignment && Array.isArray((scopedAssignment as any).$in)
+      ) {
+        filter.assignedTo = (scopedAssignment as any).$in.find((id: any) => String(id) === assignedTo)
+          ? new Types.ObjectId(assignedTo as string)
+          : { $in: [] };
+      } else {
+        filter.assignedTo = Types.ObjectId.isValid(assignedTo as string) ? new Types.ObjectId(assignedTo as string) : null;
+      }
     }
 
     // Search
@@ -134,12 +197,15 @@ export class LeadServices {
   // Get Single Lead
   // =========================================
 
-  async findById(id: string) {
+  async findById(id: string, user: RequestUser) {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid lead id');
     }
 
-    const lead = await this.leadModel.findById(id).lean();
+    const accessFilter = await this.getAccessibleLeadFilter(user);
+    const lead = await this.leadModel
+      .findOne({ _id: new Types.ObjectId(id), ...accessFilter })
+      .lean();
 
     if (!lead) {
       throw new NotFoundException('Lead not found');
@@ -162,9 +228,7 @@ export class LeadServices {
     });
 
     if (existingLead) {
-      throw new BadRequestException(
-        'Lead with this email already exists',
-      );
+      throw new BadRequestException('Lead with this email already exists');
     }
 
     const lead = await this.leadModel.create({
@@ -181,10 +245,19 @@ export class LeadServices {
   // Update Lead
   // =========================================
 
-  async update(id: string, dto: UpdateLeadDto) {
-    console.log("Updating lead with id:", id);
+  async update(id: string, dto: UpdateLeadDto, user: RequestUser) {
+    console.log('Updating lead with id:', id);
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid lead id');
+    }
+    const existingLeadForAccess = await this.assertCanAccessLead(id, user);
+
+    if (
+      isSalesExecutive(user) &&
+      dto.assignedTo !== undefined &&
+      dto.assignedTo !== existingLeadForAccess.assignedTo?.toString()
+    ) {
+      throw new ForbiddenException('Sales executives cannot reassign leads');
     }
     assertDateIsTodayOrFuture(dto.nextFollowUp, 'Next follow-up date');
 
@@ -192,11 +265,7 @@ export class LeadServices {
       lead: id,
     });
 
-    if (
-      existingProject &&
-      dto.status &&
-      dto.status !== 'Won'
-    ) {
+    if (existingProject && dto.status && dto.status !== 'Won') {
       throw new BadRequestException(
         'Cannot move lead out of Won because a project already exists',
       );
@@ -212,17 +281,13 @@ export class LeadServices {
       });
 
       if (existingLead) {
-        throw new BadRequestException(
-          'Lead with this email already exists',
-        );
+        throw new BadRequestException('Lead with this email already exists');
       }
     }
 
     // Remove undefined fields
     const cleanDto = Object.fromEntries(
-      Object.entries(dto).filter(
-        ([_, value]) => value !== undefined,
-      ),
+      Object.entries(dto).filter(([_, value]) => value !== undefined),
     );
 
     // Normalize email
@@ -260,19 +325,17 @@ export class LeadServices {
   // Update Lead Status
   // =========================================
 
-  async toggleStatus(id: string, dto: UpdateLeadStatusDto) {
+  async toggleStatus(id: string, dto: UpdateLeadStatusDto, user: RequestUser) {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid lead id');
     }
+    await this.assertCanAccessLead(id, user);
 
     const existingProject = await this.projectModel.findOne({
       lead: id,
     });
 
-    if (
-      existingProject &&
-      dto.status !== 'Won'
-    ) {
+    if (existingProject && dto.status !== 'Won') {
       throw new BadRequestException(
         'Cannot move lead out of Won because a project already exists',
       );
@@ -348,9 +411,7 @@ export class LeadServices {
     ]);
 
     if (projectExists) {
-      throw new BadRequestException(
-        'Cannot delete lead linked to projects',
-      );
+      throw new BadRequestException('Cannot delete lead linked to projects');
     }
 
     if (followUpExists) {
@@ -373,7 +434,7 @@ export class LeadServices {
   }
 
   private async syncLeadNextFollowUp(lead: LeadDocument) {
-    const leadId = lead._id as Types.ObjectId;
+    const leadId = lead._id;
     const filter = {
       lead: leadId,
       source: LEAD_NEXT_FOLLOWUP_SOURCE,
@@ -390,7 +451,7 @@ export class LeadServices {
       {
         $set: {
           lead: leadId,
-          owner: lead.assignedTo,
+          owner: lead.assignedTo ? String(lead.assignedTo) : undefined,
           type: 'Call',
           status:
             new Date(lead.nextFollowUp).getTime() < Date.now()
@@ -408,7 +469,7 @@ export class LeadServices {
   }
 
   private async syncStatusFollowUp(lead: LeadDocument) {
-    const leadId = lead._id as Types.ObjectId;
+    const leadId = lead._id;
     const filter = {
       lead: leadId,
       source: LEAD_STATUS_FOLLOWUP_SOURCE,
@@ -432,9 +493,10 @@ export class LeadServices {
       {
         $set: {
           lead: leadId,
-          owner: lead.assignedTo,
+          owner: lead.assignedTo ? String(lead.assignedTo) : undefined,
           type: 'Call',
-          status: new Date(dueAt).getTime() < Date.now() ? 'Overdue' : 'Pending',
+          status:
+            new Date(dueAt).getTime() < Date.now() ? 'Overdue' : 'Pending',
           priority: lead.priority,
           dueAt,
           source: LEAD_STATUS_FOLLOWUP_SOURCE,

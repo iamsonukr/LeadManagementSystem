@@ -39,6 +39,17 @@ export const updateUserRecord = createAsyncThunk(
   },
 );
 
+export const changeUserPassword = createAsyncThunk(
+  'users/changePassword',
+  async ({ id, password }: { id: string; password: string }, { rejectWithValue }) => {
+    try {
+      await usersService.changePassword(id, password);
+    } catch {
+      return rejectWithValue('Failed to change password');
+    }
+  },
+);
+
 export const deleteUser = createAsyncThunk(
   'users/delete',
   async (id: string, { rejectWithValue }) => {
@@ -109,6 +120,19 @@ const usersSlice = createSlice({
         if (index !== -1) state.items[index] = action.payload;
       })
       .addCase(updateUserRecord.rejected, (state, action) => {
+        state.isSubmitting = false;
+        state.error = action.payload as string;
+      });
+
+    builder
+      .addCase(changeUserPassword.pending, (state) => {
+        state.isSubmitting = true;
+        state.error = null;
+      })
+      .addCase(changeUserPassword.fulfilled, (state) => {
+        state.isSubmitting = false;
+      })
+      .addCase(changeUserPassword.rejected, (state, action) => {
         state.isSubmitting = false;
         state.error = action.payload as string;
       });

@@ -3,20 +3,29 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Download, Mail, PenLine, Phone, Plus, Search, Trash2 } from 'lucide-react';
-import AddLeadForm, { LeadFormData } from '@/components/leads/AddLeadForm';
+import AddLeadForm, { LeadAssigneeOption, LeadFormData } from '@/components/leads/AddLeadForm';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Modal from '@/components/ui/Modal';
 import { PriorityBadge } from '@/components/ui/Badge';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { useAuth } from '@/context/AuthContext';
 import { leadSourceOptions, leadStatusOptions, normalizeServices } from '@/lib/crm';
 import { exportRowsToCsv } from '@/lib/export';
+import { canManageLeads, isAdmin } from '@/lib/rbac';
 import { formatCurrency, formatDate, formatRelativeTime } from '@/lib/utils';
 import { addLead, deleteLeadThunk, fetchLeads, setFilter, updateLead, updateLeadStatus } from '@/store/slices/leadsSlice';
-import { fetchTeamMembers } from '@/store/slices/teamMembersSlice';
 import { setAddLeadModal } from '@/store/slices/uiSlice';
-import { Lead, LeadStatus } from '@/types';
+import { usersService } from '@/services';
+import { Lead, LeadStatus, UserRecord } from '@/types';
 
-function toLeadPayload(data: LeadFormData, existing?: Lead): Lead {
+const mongoIdPattern = /^[a-f\d]{24}$/i;
+
+const optionalMongoId = (value: string) => {
+  const normalized = String(value || '').trim();
+  return mongoIdPattern.test(normalized) ? normalized : undefined;
+};
+
+function toLeadPayload(data: LeadFormData, existing?: Lead): Partial<Lead> & { id: string } {
   const followUpDate = String(data.followUpDate || '');
   const followUpTime = String(data.followUpTime || '');
   const expectedCloseDate = String(data.expectedCloseDate || '');
@@ -32,8 +41,8 @@ function toLeadPayload(data: LeadFormData, existing?: Lead): Lead {
     source: (data.leadSource as Lead['source']) || 'Other',
     priority: (data.priority as Lead['priority']) || 'Medium',
     services: normalizeServices(String(data.services || '')),
-    assignedTo: String(data.assignedTo || ''),
-    department: String(data.department || ''),
+    assignedTo: optionalMongoId(data.assignedTo),
+    department: optionalMongoId(data.department),
     leadValue: Number(data.leadValue) || Number(data.budget) || 0,
     stageProbability: existing?.stageProbability ?? 30,
     expectedCloseDate: expectedCloseDate ? new Date(`${expectedCloseDate}T00:00:00`).toISOString() : existing?.expectedCloseDate,
@@ -67,7 +76,6 @@ function toLeadPayload(data: LeadFormData, existing?: Lead): Lead {
 function leadToFormData(lead: Lead): LeadFormData {
   const followUp = lead.nextFollowUp ? new Date(lead.nextFollowUp) : null;
   const expectedClose = lead.expectedCloseDate ? new Date(lead.expectedCloseDate) : null;
-
   return {
     fullName: lead.name,
     phoneNumber: lead.phone,
@@ -108,19 +116,49 @@ function leadToFormData(lead: Lead): LeadFormData {
 
 export default function LeadsPage() {
   const dispatch = useAppDispatch();
+  const { user } = useAuth();
   const { leads, filters, error, isSubmitting } = useAppSelector((state) => state.leads);
-  const teamMemberNames = useAppSelector((state) =>
-    state.teamMembers.items.filter((member) => member.status === 'Active').map((member) => member.fullName),
-  );
   const addLeadOpen = useAppSelector((state) => state.ui.addLeadModalOpen);
   const [searchVal, setSearchVal] = useState('');
+  const [assignableUsers, setAssignableUsers] = useState<UserRecord[]>([]);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [deletingLead, setDeletingLead] = useState<Lead | null>(null);
+  const canAssignLead = canManageLeads(user);
+  const canDeleteLead = isAdmin(user);
+  const currentUserId = user?.id;
+  const currentUserName = user?.name;
+  const assigneeOptions: LeadAssigneeOption[] = useMemo(
+    () =>
+      canAssignLead
+        ? assignableUsers.map((member) => ({ id: member.id, name: member.name }))
+        : currentUserId && currentUserName
+          ? [{ id: currentUserId, name: currentUserName }]
+          : [],
+    [assignableUsers, canAssignLead, currentUserId, currentUserName],
+  );
+  const assigneeNameById = useMemo(
+    () => new Map(assigneeOptions.map((member) => [member.id, member.name])),
+    [assigneeOptions],
+  );
 
   useEffect(() => {
     dispatch(fetchLeads({ limit: 100 }));
-    dispatch(fetchTeamMembers());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!canAssignLead) {
+      return;
+    }
+    usersService
+      .getAll()
+      .then((users) =>
+        setAssignableUsers(
+          users
+            .filter((item) => item.status === 'Active')
+        ),
+      )
+      .catch(() => setAssignableUsers([]));
+  }, [canAssignLead]);
 
   const filtered = useMemo(() => leads.filter((lead) => {
     const q = searchVal.toLowerCase();
@@ -158,14 +196,14 @@ export default function LeadsPage() {
     );
   };
 
-  const handleSaveLead = (data: LeadFormData) => {
-    dispatch(addLead(toLeadPayload(data)));
+  const handleSaveLead = async (data: LeadFormData) => {
+    await dispatch(addLead(toLeadPayload(data))).unwrap();
     dispatch(setAddLeadModal(false));
   };
 
-  const handleUpdateLead = (data: LeadFormData) => {
+  const handleUpdateLead = async (data: LeadFormData) => {
     if (!editingLead) return;
-    dispatch(updateLead(toLeadPayload(data, editingLead)));
+    await dispatch(updateLead(toLeadPayload(data, editingLead))).unwrap();
     setEditingLead(null);
   };
 
@@ -192,12 +230,14 @@ export default function LeadsPage() {
           >
             <Download size={14} /> Export CSV
           </button>
-          <button
-            onClick={() => dispatch(setAddLeadModal(true))}
-            className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            <Plus size={14} /> Add Lead
-          </button>
+          {canAssignLead && (
+            <button
+              onClick={() => dispatch(setAddLeadModal(true))}
+              className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              <Plus size={14} /> Add Lead
+            </button>
+          )}
         </div>
       </div>
 
@@ -283,7 +323,7 @@ export default function LeadsPage() {
                         {lead.name}
                       </Link>
                       <div className="mt-1 text-xs text-gray-400">{lead.email || lead.phone}</div>
-                      <div className="mt-1 text-xs text-gray-400">Updated {formatRelativeTime(lead.updatedAt)}</div>
+                      <div className="mt-1 text-xs text-gray-400" suppressHydrationWarning>Updated {formatRelativeTime(lead.updatedAt)}</div>
                     </div>
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-700">
@@ -332,7 +372,7 @@ export default function LeadsPage() {
                   </td>
                   <td className="px-4 py-4"><PriorityBadge priority={lead.priority} /></td>
                   <td className="px-4 py-4 text-sm text-gray-700">
-                    <div>{lead.assignedTo || 'Unassigned'}</div>
+                    <div>{assigneeNameById.get(lead.assignedTo) || lead.assignedTo || 'Unassigned'}</div>
                     <div className="mt-1 text-xs text-gray-400">{lead.department || 'No department'}</div>
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-700">{lead.nextFollowUp ? formatDate(lead.nextFollowUp) : 'Not scheduled'}</td>
@@ -363,14 +403,14 @@ export default function LeadsPage() {
                       </a>
                       <button
                         onClick={() => setDeletingLead(lead)}
-                        disabled={lead.status === 'Won' || isSubmitting}
+                        disabled={!canDeleteLead || lead.status === 'Won' || isSubmitting}
                         className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                          lead.status === 'Won'
+                          !canDeleteLead || lead.status === 'Won'
                             ? 'cursor-not-allowed bg-gray-50 text-gray-300'
                             : 'bg-red-50 text-red-600 hover:bg-red-100'
                         }`}
                         aria-label={`Delete ${lead.name}`}
-                        title={lead.status === 'Won' ? 'Won leads cannot be deleted' : 'Delete lead'}
+                        title={!canDeleteLead ? 'Only admins can delete leads' : lead.status === 'Won' ? 'Won leads cannot be deleted' : 'Delete lead'}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -391,7 +431,12 @@ export default function LeadsPage() {
       </div>
 
       <Modal open={addLeadOpen} onClose={() => dispatch(setAddLeadModal(false))} title="" subtitle="" size="2xl">
-        <AddLeadForm onSave={handleSaveLead} onReset={() => dispatch(setAddLeadModal(false))} teamMembers={teamMemberNames} />
+        <AddLeadForm
+          onSave={handleSaveLead}
+          onReset={() => dispatch(setAddLeadModal(false))}
+          teamMembers={assigneeOptions}
+          canAssignLead={canAssignLead}
+        />
       </Modal>
 
       <Modal open={!!editingLead} onClose={() => setEditingLead(null)} title="" subtitle="" size="2xl">
@@ -401,7 +446,8 @@ export default function LeadsPage() {
             initialData={leadToFormData(editingLead)}
             onSave={handleUpdateLead}
             onReset={() => setEditingLead(null)}
-            teamMembers={teamMemberNames}
+            teamMembers={assigneeOptions}
+            canAssignLead={canAssignLead}
           />
         )}
       </Modal>
@@ -414,9 +460,9 @@ export default function LeadsPage() {
             ? 'Won leads cannot be deleted. The backend also blocks leads linked to projects, follow-ups, or call logs.'
             : `Delete ${deletingLead?.name ?? 'this lead'}? This is permanent. Leads with projects, follow-ups, or call logs will be blocked by the backend.`
         }
-        confirmLabel={deletingLead?.status === 'Won' ? 'Blocked' : 'Delete'}
+        confirmLabel={!canDeleteLead || deletingLead?.status === 'Won' ? 'Blocked' : 'Delete'}
         isWorking={isSubmitting}
-        onConfirm={deletingLead?.status === 'Won' ? () => setDeletingLead(null) : handleDeleteLead}
+        onConfirm={!canDeleteLead || deletingLead?.status === 'Won' ? () => setDeletingLead(null) : handleDeleteLead}
         onClose={() => setDeletingLead(null)}
       />
     </div>

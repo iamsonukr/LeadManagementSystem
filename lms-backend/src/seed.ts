@@ -5,7 +5,7 @@ import { CallLogSchema } from './calls/calls.entity';
 import { FollowUpSchema } from './followups/followups.entity';
 import { LeadSchema } from './leads/leads.entity';
 import { ProjectSchema } from './projects/projects.entity';
-import { TeamMemberSchema } from './team/teamMember.entity';
+import { DepartmentSchema } from './department/department.entity';
 import { UserSchema } from './users/user.entity';
 
 const UserModel = mongoose.model('User', UserSchema);
@@ -13,7 +13,7 @@ const LeadModel = mongoose.model('Lead', LeadSchema);
 const CallLogModel = mongoose.model('CallLog', CallLogSchema);
 const FollowUpModel = mongoose.model('FollowUp', FollowUpSchema);
 const ProjectModel = mongoose.model('Project', ProjectSchema);
-const TeamMemberModel = mongoose.model('TeamMember', TeamMemberSchema);
+const DepartmentModel = mongoose.model('Department', DepartmentSchema);
 
 const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@lms.local';
 const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'Admin@12345';
@@ -25,7 +25,7 @@ interface SeededLead {
   company?: string;
   status: string;
   priority: string;
-  assignedTo?: string;
+  assignedTo?: mongoose.Types.ObjectId;
   leadValue?: number;
   source?: string;
   nextAction?: string;
@@ -34,17 +34,24 @@ interface SeededLead {
 }
 
 async function upsertAdmin() {
+  const managementDepartment = await DepartmentModel.findOne({
+    name: 'Management',
+  }).select('_id');
+
   const password = await bcrypt.hash(adminPassword, 10);
 
   const admin = await UserModel.findOneAndUpdate(
     { email: adminEmail },
     {
+      $set: {
+        firstName: 'System',
+        lastName: 'Admin',
+      },
       $setOnInsert: {
-        name: 'System Admin',
         email: adminEmail,
         password,
         role: 'Admin',
-        department: 'Management',
+        department: managementDepartment?._id,
         phone: '9999999999',
         status: 'Active',
         leads: 0,
@@ -56,33 +63,25 @@ async function upsertAdmin() {
   return admin;
 }
 
-async function seedTeam() {
-  const members = [
+async function seedDepartments() {
+  const departments = [
     {
-      fullName: 'Manish Sharma',
-      email: 'manish.sales@lms.local',
-      role: 'Sales Manager',
-      department: 'Sales',
-      joiningDate: '2025-04-01',
-      currentProject: 'Enterprise CRM Rollout',
+      name: 'Sales',
+      description: 'Sales pipeline and customer acquisition',
       status: 'Active',
     },
     {
-      fullName: 'Aman Verma',
-      email: 'aman.exec@lms.local',
-      role: 'Sales Executive',
-      department: 'Sales',
-      joiningDate: '2025-07-15',
-      currentProject: 'Website Leads',
+      name: 'Management',
+      description: 'Leadership and administration',
       status: 'Active',
     },
   ];
 
   await Promise.all(
-    members.map((member) =>
-      TeamMemberModel.updateOne(
-        { email: member.email },
-        { $setOnInsert: member },
+    departments.map((department) =>
+      DepartmentModel.updateOne(
+        { name: department.name },
+        { $setOnInsert: department },
         { upsert: true },
       ),
     ),
@@ -100,8 +99,8 @@ async function seedLeads() {
       source: 'Website',
       services: ['CRM Setup', 'Automation'],
       priority: 'High',
-      assignedTo: 'Aman Verma',
-      department: 'Sales',
+      assignedTo: new mongoose.Types.ObjectId() as any,
+      department: new mongoose.Types.ObjectId() as any,
       leadValue: 250000,
       stageProbability: 35,
       expectedCloseDate: new Date('2026-05-20'),
@@ -125,8 +124,8 @@ async function seedLeads() {
       source: 'LinkedIn',
       services: ['Lead Management', 'Dashboard'],
       priority: 'Medium',
-      assignedTo: 'Manish Sharma',
-      department: 'Sales',
+      assignedTo: new mongoose.Types.ObjectId() as any,
+      department: new mongoose.Types.ObjectId() as any,
       leadValue: 180000,
       stageProbability: 55,
       expectedCloseDate: new Date('2026-05-28'),
@@ -151,8 +150,8 @@ async function seedLeads() {
       source: 'Referral',
       services: ['CRM Setup'],
       priority: 'High',
-      assignedTo: 'Manish Sharma',
-      department: 'Sales',
+      assignedTo: new mongoose.Types.ObjectId() as any,
+      department: new mongoose.Types.ObjectId() as any,
       leadValue: 320000,
       stageProbability: 100,
       expectedCloseDate: new Date('2026-04-25'),
@@ -266,8 +265,8 @@ async function seed() {
 
   await mongoose.connect(mongoUri);
 
+  await seedDepartments();
   const admin = await upsertAdmin();
-  await seedTeam();
   const leads = await seedLeads();
   await seedActivity(leads);
 

@@ -4,14 +4,19 @@ import { useEffect, useState } from "react";
 import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import AddUserForm, { UserFormData } from "@/components/users/AddUserForm";
+import ChangePasswordModal from "@/components/users/ChangePasswordModal";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import {
   addUser,
   deleteUser,
   fetchUsers,
   updateUserRecord,
+  changeUserPassword,
 } from "@/store/slices/usersSlice";
-import { UserRecord } from "@/types";
+import { fetchTeamMembers } from "@/store/slices/teamMembersSlice";
+import { UserRecord, ProjectRecord } from "@/types";
+import { usersService } from "@/services";
+import { Pencil, FolderOpen, KeyRound, Trash2 } from "lucide-react";
 
 function userToFormData(user: UserRecord): UserFormData {
   return {
@@ -41,12 +46,23 @@ function formToUserPayload(data: UserFormData): Omit<UserRecord, "id" | "created
 export default function UsersPage() {
   const dispatch = useAppDispatch();
   const { items: users, isLoading, isSubmitting, error } = useAppSelector((state) => state.users);
+  const { items: departments, isLoading: isDepartmentsLoading } = useAppSelector((state) => state.teamMembers);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
   const [deletingUser, setDeletingUser] = useState<UserRecord | null>(null);
+  const [passwordUser, setPasswordUser] = useState<UserRecord | null>(null);
+  const [projectsUser, setProjectsUser] = useState<UserRecord | null>(null);
+  const [userProjects, setUserProjects] = useState<ProjectRecord[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+
+  const departmentOptions = departments
+    .map((department) => department.fullName.trim())
+    .filter((department, index, options) => department && options.indexOf(department) === index);
 
   useEffect(() => {
     dispatch(fetchUsers());
+    dispatch(fetchTeamMembers());
+    console.log("users", users);
   }, [dispatch]);
 
   const handleUpdateUser = (data: UserFormData) => {
@@ -65,12 +81,26 @@ export default function UsersPage() {
     setDeletingUser(null);
   };
 
+  const handleViewProjects = async (user: UserRecord) => {
+    setProjectsUser(user);
+    setLoadingProjects(true);
+    try {
+      const projects = await usersService.getProjectsForUser(user.id);
+      setUserProjects(projects);
+    } catch (err) {
+      console.error("Error fetching user projects:", err);
+      setUserProjects([]);
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
+
   return (
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Dashboard Users</h1>
-          <p className="mt-1 text-sm text-gray-500">Login accounts for dashboard access. Assignable staff are managed in Team.</p>
+          <p className="mt-1 text-sm text-gray-500">Login accounts for dashboard access. Departments are managed separately.</p>
           {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
         </div>
         <button
@@ -112,19 +142,37 @@ export default function UsersPage() {
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-700">{u.leads}</td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2">
                       <button
-                        className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
                         onClick={() => setSelectedUser(u)}
+                        title="Edit User"
+                        className="p-2 rounded-lg text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition-colors"
                       >
-                        Edit
+                        <Pencil size={16} />
                       </button>
-                      <span className="text-gray-300 mx-1">|</span>
+
                       <button
-                        className="text-red-600 hover:text-red-800 text-sm font-medium"
-                        onClick={() => setDeletingUser(u)}
+                        onClick={() => handleViewProjects(u)}
+                        title="View Projects"
+                        className="p-2 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors"
                       >
-                        Delete
+                        <FolderOpen size={16} />
+                      </button>
+
+                      <button
+                        onClick={() => setPasswordUser(u)}
+                        title="Change Password"
+                        className="p-2 rounded-lg text-teal-600 hover:text-teal-800 hover:bg-teal-50 transition-colors"
+                      >
+                        <KeyRound size={16} />
+                      </button>
+
+                      <button
+                        onClick={() => setDeletingUser(u)}
+                        title="Delete User"
+                        className="p-2 rounded-lg text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </td>
@@ -150,6 +198,8 @@ export default function UsersPage() {
       </div>
       <Modal open={isAddOpen} onClose={() => setIsAddOpen(false)} title="Add User" subtitle="Create a new user account" size="lg">
         <AddUserForm
+          departments={departmentOptions}
+          isDepartmentsLoading={isDepartmentsLoading}
           onSave={(data: UserFormData) => {
             dispatch(addUser({
               ...formToUserPayload(data),
@@ -163,6 +213,8 @@ export default function UsersPage() {
       <Modal open={!!selectedUser} onClose={() => setSelectedUser(null)} title="Edit User" subtitle="Update user information" size="lg">
         {selectedUser && (
           <AddUserForm
+            departments={departmentOptions}
+            isDepartmentsLoading={isDepartmentsLoading}
             onSave={handleUpdateUser}
             onClose={() => setSelectedUser(null)}
             initialData={userToFormData(selectedUser)}
@@ -170,13 +222,76 @@ export default function UsersPage() {
           />
         )}
       </Modal>
+      <Modal open={!!projectsUser} onClose={() => setProjectsUser(null)} title={`Projects for ${projectsUser?.name}`} subtitle="View all projects assigned to this user" size="lg">
+        <div className="space-y-3">
+          {loadingProjects ? (
+            <div className="text-center py-6 text-gray-500">Loading projects...</div>
+          ) : userProjects.length === 0 ? (
+            <div className="text-center py-6 text-gray-500">No projects assigned to this user.</div>
+          ) : (
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {userProjects.map(project => (
+                <div key={project.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-900 text-sm">{project.name}</h4>
+                      <p className="text-xs text-gray-500 mt-1">Status: <span className="font-medium text-gray-700">{project.status}</span></p>
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${project.priority === 'High' ? 'bg-red-50 text-red-700' :
+                        project.priority === 'Medium' ? 'bg-yellow-50 text-yellow-700' :
+                          'bg-green-50 text-green-700'
+                      }`}>
+                      {project.priority}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
+                    <div>
+                      <span className="text-gray-500">Budget:</span>
+                      <p className="font-medium text-gray-700">${project.budget?.toLocaleString() || '0'}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Amount Received:</span>
+                      <p className="font-medium text-gray-700">${project.amountReceived?.toLocaleString() || '0'}</p>
+                    </div>
+                  </div>
+                  {project.services && project.services.length > 0 && (
+                    <div className="mt-3">
+                      <span className="text-xs text-gray-500">Services:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {project.services.map((service, idx) => (
+                          <span key={idx} className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">
+                            {service}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
       <ConfirmDialog
         open={!!deletingUser}
         title="Delete Dashboard User"
-        description={`Delete ${deletingUser?.name ?? 'this user'}'s dashboard access? This does not remove any Team member record or assigned lead ownership.`}
+        description={`Delete ${deletingUser?.name ?? 'this user'}'s dashboard access? Existing lead ownership will keep its current text value.`}
         isWorking={isSubmitting}
         onConfirm={handleDeleteUser}
         onClose={() => setDeletingUser(null)}
+      />
+      <ChangePasswordModal
+        isOpen={!!passwordUser}
+        user={passwordUser}
+        onClose={() => setPasswordUser(null)}
+        isSubmitting={isSubmitting}
+        onSubmit={(password) => {
+          if (passwordUser) {
+            dispatch(changeUserPassword({ id: passwordUser.id, password })).then(() => {
+              setPasswordUser(null);
+            });
+          }
+        }}
       />
     </div>
   );

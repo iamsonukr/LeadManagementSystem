@@ -10,7 +10,7 @@ export const fetchTeamMembers = createAsyncThunk(
     try {
       return await teamMembersService.getAll();
     } catch {
-      return rejectWithValue('Failed to fetch team members');
+      return rejectWithValue('Failed to fetch departments');
     }
   },
 );
@@ -21,7 +21,7 @@ export const addTeamMember = createAsyncThunk(
     try {
       return await teamMembersService.create(payload);
     } catch {
-      return rejectWithValue('Failed to create team member');
+      return rejectWithValue('Failed to create department');
     }
   },
 );
@@ -32,7 +32,7 @@ export const updateTeamMember = createAsyncThunk(
     try {
       return await teamMembersService.update(payload.id, payload);
     } catch {
-      return rejectWithValue('Failed to update team member');
+      return rejectWithValue('Failed to update department');
     }
   },
 );
@@ -44,7 +44,7 @@ export const deleteTeamMember = createAsyncThunk(
       await teamMembersService.delete(id);
       return id;
     } catch {
-      return rejectWithValue('Failed to delete team member');
+      return rejectWithValue('Failed to delete department');
     }
   },
 );

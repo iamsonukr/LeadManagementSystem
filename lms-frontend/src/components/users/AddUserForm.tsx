@@ -58,15 +58,26 @@ interface Props {
   onClose: () => void;
   initialData?: Partial<UserFormData>;
   mode?: 'add' | 'edit';
+  departments?: string[];
+  isDepartmentsLoading?: boolean;
 }
 
-export default function AddUserForm({ onSave, onClose, initialData, mode = 'add' }: Props) {
+export default function AddUserForm({
+  onSave,
+  initialData,
+  mode = 'add',
+  departments = [],
+  isDepartmentsLoading = false,
+}: Props) {
   const [form, setForm] = useState<UserFormData>({
     ...defaultForm,
     ...initialData,
   });
 
   const isEdit = mode === 'edit';
+  const departmentOptions = form.department && !departments.includes(form.department)
+    ? [form.department, ...departments]
+    : departments;
 
   const set = (key: keyof UserFormData) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -143,7 +154,19 @@ export default function AddUserForm({ onSave, onClose, initialData, mode = 'add'
           <SectionTitle icon={<Briefcase size={14} />} title="Work Details" />
           <div className="space-y-3">
             <Field label="Department">
-              <input className={inputCls} value={form.department} onChange={set('department')} />
+              <select
+                className={selectCls}
+                value={form.department}
+                onChange={set('department')}
+                disabled={isDepartmentsLoading || departmentOptions.length === 0}
+              >
+                <option value="">
+                  {isDepartmentsLoading ? 'Loading departments...' : 'Select department'}
+                </option>
+                {departmentOptions.map((department) => (
+                  <option key={department} value={department}>{department}</option>
+                ))}
+              </select>
             </Field>
             <Field label="Phone">
               <input className={inputCls} value={form.phone} onChange={set('phone')} />

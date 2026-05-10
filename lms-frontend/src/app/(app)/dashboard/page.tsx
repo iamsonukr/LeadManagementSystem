@@ -12,6 +12,7 @@ import LeadFunnel from '@/components/dashboard/LeadFunnel';
 import FollowUpOverviewWidget from '@/components/dashboard/FollowUpOverviewWidget';
 import TopSourcesWidget from '@/components/dashboard/TopSourcesWidget';
 import LeadsByLocationWidget from '@/components/dashboard/LeadsByLocationWidget';
+import LeadsByAssigneeWidget from '@/components/dashboard/LeadsByAssigneeWidget';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { fetchDashboardStats, fetchLeads } from '@/store/slices/leadsSlice';
@@ -84,8 +85,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Row 4: Top Sources + Lead Funnel + Follow Ups */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         <TopSourcesWidget />
+        <LeadsByAssigneeWidget />
         <LeadFunnel />
         <FollowUpOverviewWidget />
       </div>

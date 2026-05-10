@@ -12,6 +12,10 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 
 import { LeadServices } from './leads.services';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { RequestUser, ROLES } from '../auth/roles';
 
 import {
   CreateLeadDto,
@@ -21,7 +25,7 @@ import {
 } from './leads.dto';
 
 @Controller('leads')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class LeadController {
   constructor(private readonly service: LeadServices) {}
 
@@ -30,8 +34,8 @@ export class LeadController {
   // =========================================
 
   @Get()
-  findAll(@Query() query: LeadFilterDto) {
-    return this.service.findAll(query);
+  findAll(@Query() query: LeadFilterDto, @CurrentUser() user: RequestUser) {
+    return this.service.findAll(query, user);
   }
 
   // =========================================
@@ -39,8 +43,8 @@ export class LeadController {
   // =========================================
 
   @Get(':id')
-  findById(@Param('id') id: string) {
-    return this.service.findById(id);
+  findById(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.service.findById(id, user);
   }
 
   // =========================================
@@ -48,6 +52,7 @@ export class LeadController {
   // =========================================
 
   @Post()
+  @Roles(ROLES.ADMIN, ROLES.MANAGER)
   create(@Body() dto: CreateLeadDto) {
     return this.service.create(dto);
   }
@@ -57,8 +62,12 @@ export class LeadController {
   // =========================================
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateLeadDto) {
-    return this.service.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateLeadDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.update(id, dto, user);
   }
 
   // =========================================
@@ -66,8 +75,12 @@ export class LeadController {
   // =========================================
 
   @Patch(':id/status')
-  toggleStatus(@Param('id') id: string, @Body() dto: UpdateLeadStatusDto) {
-    return this.service.toggleStatus(id, dto);
+  toggleStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateLeadStatusDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.toggleStatus(id, dto, user);
   }
 
   // =========================================
@@ -75,6 +88,7 @@ export class LeadController {
   // =========================================
 
   @Delete(':id')
+  @Roles(ROLES.ADMIN)
   remove(@Param('id') id: string) {
     return this.service.remove(id);
   }

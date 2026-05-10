@@ -221,14 +221,18 @@ export const tasksService = {
 // ─── Users ─────────────────────────────────────────────────────
 export const teamMembersService = {
   getAll: async (): Promise<TeamMemberRecord[]> => {
-    const { data } = await apiClient.get('/team');
+    const { data } = await apiClient.get('/departments');
     return unwrapApi<unknown[]>(data).map(normalizeTeamMember);
   },
 
   create: async (
     payload: Omit<TeamMemberRecord, 'id' | 'createdAt' | 'updatedAt'>,
   ): Promise<TeamMemberRecord> => {
-    const { data } = await apiClient.post('/team', payload);
+    const { data } = await apiClient.post('/departments', {
+      name: payload.fullName,
+      description: payload.currentProject,
+      status: payload.status,
+    });
     return normalizeTeamMember(unwrapApi<unknown>(data));
   },
 
@@ -236,13 +240,37 @@ export const teamMembersService = {
     id: string,
     payload: Partial<TeamMemberRecord>,
   ): Promise<TeamMemberRecord> => {
-    const { data } = await apiClient.put(`/team/${id}`, payload);
+    const { data } = await apiClient.patch(`/departments/${id}`, {
+      name: payload.fullName,
+      description: payload.currentProject,
+      status: payload.status,
+    });
     return normalizeTeamMember(unwrapApi<unknown>(data));
   },
 
   delete: async (id: string): Promise<void> => {
-    await apiClient.delete(`/team/${id}`);
+    await apiClient.delete(`/departments/${id}`);
   },
+};
+
+const toUserApiPayload = (
+  payload: Partial<UserRecord> & { password?: string },
+) => {
+  const [firstName = '', ...lastNameParts] = String(payload.name ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  return {
+    firstName,
+    lastName: lastNameParts.join(' ') || firstName,
+    email: payload.email,
+    password: payload.password,
+    role: payload.role,
+    department: payload.department,
+    phone: payload.phone,
+    status: payload.status,
+  };
 };
 
 export const usersService = {
@@ -259,16 +287,25 @@ export const usersService = {
   create: async (
     payload: Omit<UserRecord, 'id' | 'createdAt' | 'updatedAt'> & { password: string },
   ): Promise<UserRecord> => {
-    const { data } = await apiClient.post('/users', payload);
+    const { data } = await apiClient.post('/users', toUserApiPayload(payload));
     return normalizeUser(unwrapApi<unknown>(data));
   },
 
   update: async (id: string, payload: Partial<UserRecord>): Promise<UserRecord> => {
-    const { data } = await apiClient.put(`/users/${id}`, payload);
+    const { data } = await apiClient.patch(`/users/${id}`, toUserApiPayload(payload));
     return normalizeUser(unwrapApi<unknown>(data));
+  },
+
+  changePassword: async (id: string, password: string): Promise<void> => {
+    await apiClient.patch(`/users/${id}/password`, { password });
   },
 
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/users/${id}`);
+  },
+
+  getProjectsForUser: async (id: string): Promise<ProjectRecord[]> => {
+    const { data } = await apiClient.get(`/users/${id}/projects`);
+    return unwrapApi<unknown[]>(data).map(normalizeProject);
   },
 };

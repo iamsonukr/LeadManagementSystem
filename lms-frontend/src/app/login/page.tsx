@@ -104,7 +104,7 @@ export default function LoginPage() {
             <p className="text-xs font-semibold text-gray-400 text-center mb-3">Demo Credentials</p>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { role: 'Admin', email: 'admin@lms.com', color: 'bg-purple-50 text-purple-700 border-purple-200' },
+                { role: 'Admin', email: 'admin@lms.local', color: 'bg-purple-50 text-purple-700 border-purple-200' },
                 { role: 'Manager', email: 'john@lms.com', color: 'bg-blue-50 text-blue-700 border-blue-200' },
                 { role: 'Sales', email: 'priya@lms.com', color: 'bg-green-50 text-green-700 border-green-200' },
               ].map(({ role, email: e, color }) => (

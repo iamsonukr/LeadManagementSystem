@@ -4,16 +4,35 @@ export interface LoginPayload { email: string; password: string; }
 export interface RegisterPayload { name: string; email: string; password: string; role?: string; department?: string; }
 
 export interface AuthUser {
-  _id: string;
+  id: string;
+  _id?: string;
   name: string;
   email: string;
-  role: 'admin' | 'manager' | 'sales_executive';
-  department: string;
-  isActive: boolean;
-  createdAt: string;
+  role: 'Admin' | 'Sales Manager' | 'Sales Executive';
+  department?: string | null;
+  phone?: string | null;
+  status?: string;
+  isActive?: boolean;
+  createdAt?: string;
 }
 
 export interface AuthResponse { user: AuthUser; access_token: string; }
+
+const toRegisterApiPayload = (payload: RegisterPayload) => {
+  const [firstName = '', ...lastNameParts] = payload.name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  return {
+    firstName,
+    lastName: lastNameParts.join(' ') || firstName,
+    email: payload.email,
+    password: payload.password,
+    role: payload.role,
+    department: payload.department,
+  };
+};
 
 const authService = {
   login: async (payload: LoginPayload): Promise<AuthResponse> => {
@@ -21,7 +40,7 @@ const authService = {
     return data.data;
   },
   register: async (payload: RegisterPayload): Promise<AuthResponse> => {
-    const { data } = await apiClient.post('/users', payload);
+    const { data } = await apiClient.post('/users', toRegisterApiPayload(payload));
     return data.data;
   },
   logout: async (): Promise<void> => {},

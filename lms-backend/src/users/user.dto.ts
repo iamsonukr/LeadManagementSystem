@@ -1,43 +1,91 @@
+import { PartialType } from '@nestjs/swagger';
+
 import {
-  ApiProperty,
-  ApiPropertyOptional,
-  PartialType,
-  OmitType,
-} from '@nestjs/swagger';
-import {
-  IsString,
+  IsArray,
+  IsDateString,
   IsEmail,
-  IsOptional,
-  MinLength,
   IsIn,
-  IsNumber,
+  IsOptional,
+  IsString,
+  MinLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+
+// =========================================
+// Create User DTO
+// =========================================
 
 export class CreateUserDto {
-  @ApiProperty() @IsString() name: string;
-  @ApiProperty() @IsEmail() email: string;
-  @ApiProperty() @IsString() @MinLength(6) password: string;
-  @ApiPropertyOptional()
+  @IsString()
+  firstName!: string;
+
+  @IsString()
+  lastName!: string;
+
+  @IsEmail()
+  email!: string;
+
+  @MinLength(6)
+  @IsString()
+  password!: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  employeeId?: string;
+
   @IsOptional()
   @IsIn(['Admin', 'Sales Manager', 'Sales Executive'])
   role?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() department?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() phone?: string;
-  @ApiPropertyOptional()
+
   @IsOptional()
-  @IsIn(['Active', 'Inactive'])
+  @IsString()
+  department?: string;
+
+  @IsOptional()
+  @IsIn(['Full-time', 'Part-time', 'Contract', 'Intern'])
+  employmentType?: string;
+
+  @IsOptional()
+  @IsDateString()
+  joiningDate?: string;
+
+  @IsOptional()
+  @IsString()
+  workLocation?: string;
+
+  @IsOptional()
+  @IsString()
+  reportingManager?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  skills?: string[];
+
+  @IsOptional()
+  @IsString()
+  currentProject?: string;
+
+  @IsOptional()
+  @IsIn(['Active', 'Inactive', 'On Leave', 'Resigned'])
   status?: string;
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  leads?: number;
 }
 
-export class UpdateUserDto extends PartialType(
-  OmitType(CreateUserDto, ['password'] as const),
-) {}
+// =========================================
+// Update User DTO
+// =========================================
+
+export class UpdateUserDto extends PartialType(CreateUserDto) {}
+
+// =========================================
+// Change Password DTO
+// =========================================
+
 export class ChangePasswordDto {
-  @ApiProperty() @IsString() @MinLength(6) password: string;
+  @MinLength(6)
+  @IsString()
+  password!: string;
 }

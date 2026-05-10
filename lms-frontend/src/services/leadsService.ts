@@ -30,6 +30,7 @@ export interface DashboardStats {
   conversionRateDelta: number;
   byStatus: Array<{ _id: string; count: number }>;
   bySource: Array<{ _id: string; count: number }>;
+  byAssignee: Array<{ _id: string; count: number }>;
   leadsOverTime: Array<{ _id: string; count: number }>;
   revenueGenerated: number;
   revenueDelta: number;
@@ -47,6 +48,7 @@ type BackendDashboardStats = {
     revenue: number;
     byStatus: Record<string, number>;
     bySource: Record<string, number>;
+    byAssignee: Record<string, number>;
   };
   followUpOverview: DashboardStats['followUpOverview'];
   callStats: DashboardStats['callStats'];
@@ -109,6 +111,7 @@ const leadsService = {
       revenueDelta: 0,
       byStatus: recordToRows(stats.leads.byStatus),
       bySource: recordToRows(stats.leads.bySource),
+      byAssignee: recordToRows(stats.leads.byAssignee),
       leadsOverTime: [],
       followUpOverview: stats.followUpOverview,
       callStats: stats.callStats,

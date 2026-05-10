@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -7,30 +8,87 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 
 import { Project, ProjectDocument } from './projects.entity';
+import { Lead, LeadDocument } from '../leads/leads.entity';
+import { User, UserDocument } from '../users/user.entity';
 
 import {
   CreateProjectDto,
   ProjectFilterDto,
   UpdateProjectDto,
 } from './projects.dto';
+import {
+  isAdmin,
+  isManager,
+  RequestUser,
+  userAssignmentKeys,
+} from '../auth/roles';
 
 @Injectable()
 export class ProjectsService {
   constructor(
     @InjectModel(Project.name)
     private readonly projectModel: Model<ProjectDocument>,
+    @InjectModel(Lead.name)
+    private readonly leadModel: Model<LeadDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
   ) {}
 
-  async findAll(query: ProjectFilterDto) {
-    const {
-      lead,
-      status,
-      search,
-      page = 1,
-      limit = 10,
-    } = query;
+  private async getAccessibleLeadIds(user: RequestUser) {
+    if (isAdmin(user)) {
+      return null;
+    }
+
+    const ownKeys = userAssignmentKeys(user);
+    let assignmentKeys = ownKeys;
+
+    if (isManager(user)) {
+      const teamMembers = await this.userModel
+        .find({ reportingManager: new Types.ObjectId(user.id) })
+        .select('firstName lastName email')
+        .lean();
+
+      assignmentKeys = [
+        ...ownKeys,
+        ...teamMembers.flatMap((member) => {
+          const name = `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim();
+          return [String(member._id), member.email, name].filter(Boolean);
+        }),
+      ];
+    }
+
+    const leads = await this.leadModel
+      .find({ assignedTo: { $in: [...new Set(assignmentKeys)] } })
+      .select('_id')
+      .lean();
+
+    return leads.map((lead) => lead._id as Types.ObjectId);
+  }
+
+  private async assertCanAccessProject(id: string, user: RequestUser) {
+    const leadIds = await this.getAccessibleLeadIds(user);
+    const project = await this.projectModel
+      .findOne({
+        _id: new Types.ObjectId(id),
+        ...(leadIds ? { lead: { $in: leadIds } } : {}),
+      })
+      .select('_id')
+      .lean();
+
+    if (!project) {
+      throw new ForbiddenException('You do not have access to this project');
+    }
+  }
+
+  async findAll(query: ProjectFilterDto, user: RequestUser) {
+    const { lead, status, search, page = 1, limit = 10 } = query;
 
     const filter: Record<string, unknown> = {};
+    const accessibleLeadIds = await this.getAccessibleLeadIds(user);
+
+    if (accessibleLeadIds) {
+      filter.lead = { $in: accessibleLeadIds };
+    }
 
     // =========================
     // Filters
@@ -40,7 +98,10 @@ export class ProjectsService {
       if (!Types.ObjectId.isValid(lead)) {
         throw new BadRequestException('Invalid lead id');
       }
-      filter.lead = new Types.ObjectId(lead);
+      const requestedLead = new Types.ObjectId(lead);
+      filter.lead = accessibleLeadIds
+        ? { $in: accessibleLeadIds.filter((id) => id.equals(requestedLead)) }
+        : requestedLead;
     }
     if (status) {
       filter.status = status;
@@ -49,26 +110,24 @@ export class ProjectsService {
     let leadIds: Types.ObjectId[] = [];
 
     if (search) {
-      const projects = await this.projectModel
-        .find()
-        .populate({
-          path: 'lead',
-          match: {
-            $or: [
-              { name: { $regex: search, $options: 'i' } },
-              { email: { $regex: search, $options: 'i' } },
-              { company: { $regex: search, $options: 'i' } },
-              { assignedTo: { $regex: search, $options: 'i' } },
-            ],
-          },
-          select: '_id',
-        });
+      const projects = await this.projectModel.find().populate({
+        path: 'lead',
+        match: {
+          $or: [
+            { name: { $regex: search, $options: 'i' } },
+            { email: { $regex: search, $options: 'i' } },
+            { company: { $regex: search, $options: 'i' } },
+            { assignedTo: { $regex: search, $options: 'i' } },
+          ],
+        },
+        select: '_id',
+      });
 
-      leadIds = projects
-        .filter((p) => p.lead)
-        .map((p) => (p.lead as any)._id);
+      leadIds = projects.filter((p) => p.lead).map((p) => (p.lead as any)._id);
 
-      filter.lead = { $in: leadIds };
+      filter.lead = accessibleLeadIds
+        ? { $in: leadIds.filter((id) => accessibleLeadIds.some((allowed) => allowed.equals(id))) }
+        : { $in: leadIds };
     }
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -107,16 +166,16 @@ export class ProjectsService {
     };
   }
 
-  async findById(id: string) {
+  async findById(id: string, user: RequestUser) {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid project id');
     }
 
-    const project = await this.projectModel
-      .findById(id)
-      .populate(
-        'lead',
-        `
+    await this.assertCanAccessProject(id, user);
+
+    const project = await this.projectModel.findById(id).populate(
+      'lead',
+      `
           name
           email
           phone
@@ -128,7 +187,7 @@ export class ProjectsService {
           priority
           status
         `,
-      );
+    );
 
     if (!project) {
       throw new NotFoundException('Project not found');
@@ -165,8 +224,8 @@ export class ProjectsService {
   }
 
   async update(id: string, dto: UpdateProjectDto) {
-    console.log("Reached here ---", dto)
-    
+    console.log('Reached here ---', dto);
+
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid project id');
     }
@@ -184,11 +243,7 @@ export class ProjectsService {
     }
 
     const updatedProject = await this.projectModel
-      .findByIdAndUpdate(
-        id,
-        { $set: cleanDto },
-        { new: true },
-      )
+      .findByIdAndUpdate(id, { $set: cleanDto }, { new: true })
       .populate(
         'lead',
         `

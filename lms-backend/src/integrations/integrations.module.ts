@@ -10,4 +10,3 @@ import { IntegrationsService } from './integrations.service';
   exports: [IntegrationsService],
 })
 export class IntegrationsModule {}
-

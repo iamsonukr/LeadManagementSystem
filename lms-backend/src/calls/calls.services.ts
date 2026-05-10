@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 
 import { InjectModel } from '@nestjs/mongoose';
@@ -10,6 +11,8 @@ import { Model, QueryFilter, Types } from 'mongoose';
 
 import { CallLog, CallLogDocument } from './calls.entity';
 import { FollowUp, FollowUpDocument } from '../followups/followups.entity';
+import { Lead, LeadDocument } from '../leads/leads.entity';
+import { User, UserDocument } from '../users/user.entity';
 import { assertDateIsTodayOrFuture } from '../common/date-validation';
 
 import {
@@ -18,6 +21,12 @@ import {
   UpdateCallStatusDto,
   CallLogFilterDto,
 } from './calls.dto';
+import {
+  isAdmin,
+  isManager,
+  RequestUser,
+  userAssignmentKeys,
+} from '../auth/roles';
 
 @Injectable()
 export class CallsService {
@@ -27,9 +36,66 @@ export class CallsService {
 
     @InjectModel(FollowUp.name)
     private followUpModel: Model<FollowUpDocument>,
+    @InjectModel(Lead.name)
+    private leadModel: Model<LeadDocument>,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
   ) {}
 
-  async findAll(query: CallLogFilterDto) {
+  private async getAssignmentKeys(user: RequestUser) {
+    if (isAdmin(user)) {
+      return null;
+    }
+
+    const ownKeys = userAssignmentKeys(user);
+    if (!isManager(user)) {
+      return ownKeys;
+    }
+
+    const teamMembers = await this.userModel
+      .find({ reportingManager: new Types.ObjectId(user.id) })
+      .select('firstName lastName email')
+      .lean();
+
+    return [
+      ...ownKeys,
+      ...teamMembers.flatMap((member) => {
+        const name = `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim();
+        return [String(member._id), member.email, name].filter(Boolean);
+      }),
+    ];
+  }
+
+  private async getAccessibleLeadIds(user: RequestUser) {
+    const assignmentKeys = await this.getAssignmentKeys(user);
+    if (!assignmentKeys) {
+      return null;
+    }
+
+    const leads = await this.leadModel
+      .find({ assignedTo: { $in: [...new Set(assignmentKeys)] } })
+      .select('_id')
+      .lean();
+
+    return leads.map((lead) => lead._id as Types.ObjectId);
+  }
+
+  private async assertCanAccessCall(id: string, user: RequestUser) {
+    const leadIds = await this.getAccessibleLeadIds(user);
+    const call = await this.callLogModel
+      .findOne({
+        _id: new Types.ObjectId(id),
+        ...(leadIds ? { lead: { $in: leadIds } } : {}),
+      })
+      .select('_id')
+      .lean();
+
+    if (!call) {
+      throw new ForbiddenException('You do not have access to this call log');
+    }
+  }
+
+  async findAll(query: CallLogFilterDto, user: RequestUser) {
     const {
       lead,
       status,
@@ -42,12 +108,22 @@ export class CallsService {
     } = query;
 
     const filter: QueryFilter<CallLogDocument> = {};
+    const accessibleLeadIds = await this.getAccessibleLeadIds(user);
+
+    if (accessibleLeadIds) {
+      filter.lead = { $in: accessibleLeadIds };
+    }
 
     if (lead) {
       if (!Types.ObjectId.isValid(lead)) {
         throw new BadRequestException('Invalid lead id');
       }
-      filter.lead = new Types.ObjectId(lead);
+      const requestedLead = new Types.ObjectId(lead);
+      filter.lead = accessibleLeadIds
+        ? {
+            $in: accessibleLeadIds.filter((id) => id.equals(requestedLead)),
+          }
+        : requestedLead;
     }
 
     if (status) {
@@ -96,10 +172,12 @@ export class CallsService {
     };
   }
 
-  async findById(id: string) {
+  async findById(id: string, user: RequestUser) {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid call log id');
     }
+
+    await this.assertCanAccessCall(id, user);
 
     const call = await this.callLogModel.findById(id).populate('lead');
 
@@ -110,15 +188,25 @@ export class CallsService {
     return call;
   }
 
-  async create(dto: CreateCallLogDto) {
+  async create(dto: CreateCallLogDto, user: RequestUser) {
     if (!Types.ObjectId.isValid(dto.lead)) {
       throw new BadRequestException('Invalid lead id');
     }
     assertDateIsTodayOrFuture(dto.followUpDate, 'Next follow-up date');
+    const accessibleLeadIds = await this.getAccessibleLeadIds(user);
+    const leadObjectId = new Types.ObjectId(dto.lead);
+
+    if (
+      accessibleLeadIds &&
+      !accessibleLeadIds.some((id) => id.equals(leadObjectId))
+    ) {
+      throw new ForbiddenException('You do not have access to this lead');
+    }
 
     const createdCall = await this.callLogModel.create({
       ...dto,
-      lead: new Types.ObjectId(dto.lead),
+      lead: leadObjectId,
+      calledBy: dto.calledBy || user.name || user.email,
     });
 
     const populatedCall = await createdCall.populate('lead');
@@ -127,10 +215,11 @@ export class CallsService {
     return populatedCall;
   }
 
-  async update(id: string, dto: UpdateCallLogDto) {
+  async update(id: string, dto: UpdateCallLogDto, user: RequestUser) {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid call log id');
     }
+    await this.assertCanAccessCall(id, user);
     assertDateIsTodayOrFuture(dto.followUpDate, 'Next follow-up date');
 
     const cleanDto = Object.fromEntries(
@@ -165,10 +254,11 @@ export class CallsService {
     return updatedCall;
   }
 
-  async updateStatus(id: string, dto: UpdateCallStatusDto) {
+  async updateStatus(id: string, dto: UpdateCallStatusDto, user: RequestUser) {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid call log id');
     }
+    await this.assertCanAccessCall(id, user);
 
     const updatedCall = await this.callLogModel
       .findByIdAndUpdate(
@@ -193,10 +283,11 @@ export class CallsService {
     return updatedCall;
   }
 
-  async remove(id: string) {
+  async remove(id: string, user: RequestUser) {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid call log id');
     }
+    await this.assertCanAccessCall(id, user);
 
     const deletedCall = await this.callLogModel.findByIdAndDelete(id);
 
@@ -246,7 +337,8 @@ export class CallsService {
           lead: leadId,
           owner: call.calledBy || String(leadRecord.assignedTo ?? ''),
           type: 'Call',
-          status: new Date(dueAt).getTime() < Date.now() ? 'Overdue' : 'Pending',
+          status:
+            new Date(dueAt).getTime() < Date.now() ? 'Overdue' : 'Pending',
           priority: String(leadRecord.priority ?? 'Medium'),
           dueAt,
           source,

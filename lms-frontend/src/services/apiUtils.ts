@@ -68,6 +68,14 @@ const getRefId = <T>(value: MongoRef<T> | undefined): string => {
   return getId(value);
 };
 
+const getDepartmentName = (value: unknown): string => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+
+  const record = asRecord(value);
+  return String(record.name ?? record.title ?? record.department ?? '');
+};
+
 export const normalizeLead = (raw: unknown): Lead => {
   const item = asRecord(raw);
   const address = asRecord(item.address);
@@ -83,7 +91,7 @@ export const normalizeLead = (raw: unknown): Lead => {
     source: (item.source as Lead['source']) ?? 'Other',
     priority: (item.priority as Lead['priority']) ?? 'Medium',
     assignedTo: String(item.assignedTo ?? ''),
-    department: String(item.department ?? ''),
+    department: getDepartmentName(item.department),
     leadValue: Number(item.leadValue ?? 0),
     stageProbability: Number(item.stageProbability ?? 0),
     expectedCloseDate: item.expectedCloseDate ? String(item.expectedCloseDate) : undefined,
@@ -239,13 +247,13 @@ export const normalizeTeamMember = (raw: unknown): TeamMemberRecord => {
     phone: String(item.phone ?? ''),
     employeeId: String(item.employeeId ?? ''),
     role: String(item.role ?? ''),
-    department: String(item.department ?? ''),
+    department: getDepartmentName(item.department),
     employmentType: (item.employmentType as TeamMemberRecord['employmentType']) ?? 'Full-time',
     joiningDate: String(item.joiningDate ?? ''),
     workLocation: String(item.workLocation ?? ''),
     reportingManager: String(item.reportingManager ?? ''),
     skills: Array.isArray(item.skills) ? item.skills.map(String) : [],
-    currentProject: String(item.currentProject ?? ''),
+    currentProject: String(item.currentProject ?? item.description ?? ''),
     status: (item.status as TeamMemberRecord['status']) ?? 'Active',
     createdAt: String(item.createdAt ?? new Date().toISOString()),
     updatedAt: String(item.updatedAt ?? item.createdAt ?? new Date().toISOString()),
@@ -254,13 +262,18 @@ export const normalizeTeamMember = (raw: unknown): TeamMemberRecord => {
 
 export const normalizeUser = (raw: unknown): UserRecord => {
   const item = asRecord(raw);
+  const name = String(
+    item.name ??
+      [item.firstName, item.lastName].filter(Boolean).join(' ') ??
+      '',
+  ).trim();
 
   return {
     id: getId(item),
-    name: String(item.name ?? ''),
+    name,
     email: String(item.email ?? ''),
     role: (item.role as UserRecord['role']) ?? 'Sales Executive',
-    department: String(item.department ?? ''),
+    department: getDepartmentName(item.department),
     phone: String(item.phone ?? ''),
     status: (item.status as UserRecord['status']) ?? 'Active',
     leads: Number(item.leads ?? 0),

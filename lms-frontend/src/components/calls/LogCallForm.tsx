@@ -97,7 +97,10 @@ export default function LogCallForm({ onSave, initialData, mode = 'add', teamMem
   };
 
   const handleSave = () => {
-    if (form.followUpDate && form.followUpDate.slice(0, 10) < todayDate) {
+    if (
+      !isEdit &&
+      form.followUpDate?.slice(0, 10) < todayDate
+    ) {
       alert('Next follow-up date cannot be in the past.');
       return;
     }

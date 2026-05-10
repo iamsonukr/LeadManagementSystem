@@ -3,14 +3,10 @@
 import { useState } from 'react';
 import {
     User,
-    Mail,
     Briefcase,
-    Calendar,
-    Building2,
     Save,
     X,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 export interface TeamFormData {
     fullName: string;
@@ -120,12 +116,12 @@ export default function AddTeamMemberForm({
                     </div>
                     <div>
                         <h2 className="text-lg font-bold text-gray-900">
-                            {isEdit ? 'Edit Team Member' : 'Add Team Member'}
+                            {isEdit ? 'Edit Department' : 'Add Department'}
                         </h2>
                         <p className="text-xs text-gray-500">
                             {isEdit
-                                ? 'Update team member details'
-                                : 'Add a new member to your team'}
+                                ? 'Update department details'
+                                : 'Add a new department'}
                         </p>
                     </div>
                 </div>
@@ -147,14 +143,12 @@ export default function AddTeamMemberForm({
                 </div>
             </div>
 
-            {/* Form */}
-            <div className="grid grid-cols-2 gap-6">
-                {/* Basic Info */}
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div className="bg-gray-50 p-4 rounded-xl border">
-                    <SectionTitle icon={<User size={14} />} title="Basic Info" />
+                    <SectionTitle icon={<User size={14} />} title="Department" />
 
                     <div className="space-y-3">
-                        <Field label="Full Name" required>
+                        <Field label="Department Name" required>
                             <input
                                 className={inputCls}
                                 value={form.fullName}
@@ -162,124 +156,26 @@ export default function AddTeamMemberForm({
                             />
                         </Field>
 
-                        <Field label="Email" required>
-                            <input
-                                type="email"
-                                className={inputCls}
-                                value={form.email}
-                                onChange={set('email')}
-                            />
-                        </Field>
-
-                        <Field label="Phone" required>
+                        <Field label="Description">
                             <input
                                 className={inputCls}
-                                value={form.phone}
-                                onChange={set('phone')}
-                            />
-                        </Field>
-
-                        <Field label="Employee ID" required>
-                            <input
-                                className={inputCls}
-                                value={form.employeeId}
-                                onChange={set('employeeId')}
-                            />
-                        </Field>
-
-                        <Field label="Role" required>
-                            <input
-                                className={inputCls}
-                                value={form.role}
-                                onChange={set('role')}
+                                value={form.currentProject}
+                                onChange={set('currentProject')}
                             />
                         </Field>
                     </div>
                 </div>
 
-                {/* Work Info */}
                 <div className="bg-gray-50 p-4 rounded-xl border">
-                    <SectionTitle icon={<Briefcase size={14} />} title="Work Info" />
+                    <SectionTitle icon={<Briefcase size={14} />} title="Status" />
                     <div className="space-y-3">
-                        <Field label="Department">
-                            <select
-                                className={selectCls}
-                                value={form.department}
-                                onChange={set('department')}
-                            >
-                                <option value="">Select department</option>
-                                {['Development', 'Design', 'Marketing', 'Media'].map((d) => (
-                                    <option key={d}>{d}</option>
-                                ))}
-                            </select>
-                        </Field>
-
-                        <Field label="Employment Type" required>
-                            <select
-                                className={selectCls}
-                                value={form.employmentType}
-                                onChange={set('employmentType')}
-                            >
-                                {['Full-time', 'Part-time', 'Contract', 'Intern'].map((type) => (
-                                    <option key={type}>{type}</option>
-                                ))}
-                            </select>
-                        </Field>
-
-                        <Field label="Joining Date">
-                            <input
-                                type="date"
-                                className={inputCls}
-                                value={form.joiningDate}
-                                onChange={set('joiningDate')}
-                            />
-                        </Field>
-
-                        <Field label="Work Location" required>
-                            <input
-                                className={inputCls}
-                                value={form.workLocation}
-                                onChange={set('workLocation')}
-                            />
-                        </Field>
-
-                        <Field label="Reporting Manager">
-                            <input
-                                className={inputCls}
-                                value={form.reportingManager}
-                                onChange={set('reportingManager')}
-                            />
-                        </Field>
-
-                        <Field label="Skills">
-                            <input
-                                className={inputCls}
-                                placeholder="Sales, CRM, Support"
-                                value={form.skills}
-                                onChange={set('skills')}
-                            />
-                        </Field>
-
-                        <Field label="Current Project">
-                            <select
-                                className={selectCls}
-                                value={form.currentProject}
-                                onChange={set('currentProject')}
-                            >
-                                <option value="">Select current project</option>
-                                {['CRM Dashboard', 'Website Redesign', 'Promo Video', 'API Integration', 'SEO Campaign'].map((p) => (
-                                    <option key={p}>{p}</option>
-                                ))}
-                            </select>
-                        </Field>
-
                         <Field label="Status">
                             <select
                                 className={selectCls}
                                 value={form.status}
                                 onChange={set('status')}
                             >
-                                {['Active', 'On Leave', 'Inactive'].map((s) => (
+                                {['Active', 'Inactive'].map((s) => (
                                     <option key={s}>{s}</option>
                                 ))}
                             </select>
@@ -288,9 +184,8 @@ export default function AddTeamMemberForm({
                 </div>
             </div>
 
-            {/* Footer */}
             <p className="text-center text-xs text-gray-400">
-                Team data is managed securely.
+                Department data is managed securely.
             </p>
         </div>
     );
