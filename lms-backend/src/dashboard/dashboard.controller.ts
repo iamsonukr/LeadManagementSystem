@@ -10,11 +10,14 @@ import { Project, ProjectDocument } from '../projects/projects.entity';
 import { User, UserDocument } from '../users/user.entity';
 import { CurrentUser } from '../auth/current-user.decorator';
 import {
+  AssignmentKey,
+  buildAssignedToMatch,
   isAdmin,
   isManager,
   RequestUser,
   userAssignmentKeys,
   userAssignmentIds,
+  userObjectId,
 } from '../auth/roles';
 
 @ApiTags('Dashboard')
@@ -47,22 +50,32 @@ export class DashboardController {
       };
     }
 
-    const ownKeys = userAssignmentIds(user);
-    let assignmentKeys = ownKeys;
+    const assignmentKeys: AssignmentKey[] = [
+      ...userAssignmentIds(user),
+      ...userAssignmentKeys(user),
+    ];
 
     if (isManager(user)) {
-      const teamMembers = await this.userModel
-        .find({ reportingManager: user.id })
-        .select('_id')
-        .lean();
+      const managerId = userObjectId(user);
+      const teamMembers = managerId
+        ? await this.userModel
+            .find({ reportingManager: managerId })
+            .select('firstName lastName email')
+            .lean()
+        : [];
 
-      assignmentKeys = [
-        ...ownKeys,
-        ...teamMembers.map((member) => member._id),
-      ];
+      assignmentKeys.push(
+        ...teamMembers.flatMap((member) => {
+          const name =
+            `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim();
+          return [member._id, String(member._id), member.email, name].filter(
+            Boolean,
+          );
+        }),
+      );
     }
 
-    const leadMatch = { assignedTo: { $in: assignmentKeys } };
+    const leadMatch = { $and: [buildAssignedToMatch(assignmentKeys)] };
     const leads = await this.leadModel.find(leadMatch).select('_id').lean();
     const leadIds = leads.map((lead) => lead._id);
 
@@ -118,17 +131,26 @@ export class DashboardController {
       ]),
       Promise.all([
         this.followUpModel.countDocuments(relatedMatch),
-        this.followUpModel.countDocuments({ ...relatedMatch, status: 'Pending' }),
+        this.followUpModel.countDocuments({
+          ...relatedMatch,
+          status: 'Pending',
+        }),
         this.followUpModel.countDocuments({
           ...relatedMatch,
           status: 'Completed',
         }),
-        this.followUpModel.countDocuments({ ...relatedMatch, status: 'Overdue' }),
+        this.followUpModel.countDocuments({
+          ...relatedMatch,
+          status: 'Overdue',
+        }),
       ]),
       Promise.all([
         this.callModel.countDocuments(relatedMatch),
         this.callModel.countDocuments({ ...relatedMatch, status: 'Connected' }),
-        this.callModel.countDocuments({ ...relatedMatch, status: 'Not Answered' }),
+        this.callModel.countDocuments({
+          ...relatedMatch,
+          status: 'Not Answered',
+        }),
         this.callModel.countDocuments({
           ...relatedMatch,
           status: 'Callback Scheduled',

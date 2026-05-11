@@ -12,12 +12,31 @@ import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 
 import { User, UserDocument } from './user.entity';
-import { Department, DepartmentDocument } from '../department/department.entity';
+import {
+  Department,
+  DepartmentDocument,
+} from '../department/department.entity';
 import { Lead, LeadDocument } from '../leads/leads.entity';
 import { Project, ProjectDocument } from '../projects/projects.entity';
 
 import { CreateUserDto, UpdateUserDto, ChangePasswordDto } from './user.dto';
-import { isAdmin, isManager, RequestUser } from '../auth/roles';
+import {
+  AssignmentKey,
+  buildAssignedToMatch,
+  isAdmin,
+  isManager,
+  RequestUser,
+  userObjectId,
+} from '../auth/roles';
+
+type AssignmentLookupUser = {
+  _id?: unknown;
+  id?: unknown;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+  email?: string;
+};
 
 @Injectable()
 export class UsersService {
@@ -63,10 +82,13 @@ export class UsersService {
       );
     }
 
-    return departmentRecord._id as Types.ObjectId;
+    return departmentRecord._id;
   }
 
-  private buildUpdatePayload(dto: UpdateUserDto, department?: Types.ObjectId | null) {
+  private buildUpdatePayload(
+    dto: UpdateUserDto,
+    department?: Types.ObjectId | null,
+  ) {
     const payload: Record<string, unknown> = {};
 
     Object.entries(dto).forEach(([key, value]) => {
@@ -82,7 +104,9 @@ export class UsersService {
     return payload;
   }
 
-  private async attachDepartments<T extends { department?: unknown }>(users: T[]) {
+  private async attachDepartments<T extends { department?: unknown }>(
+    users: T[],
+  ) {
     const departmentIds = new Set<string>();
     const departmentNames = new Set<string>();
 
@@ -94,11 +118,15 @@ export class UsersService {
       }
 
       const rawDepartment =
-        typeof department === 'object' && department !== null && '_id' in department
+        typeof department === 'object' &&
+        department !== null &&
+        '_id' in department
           ? String(
-              (department as {
-                _id?: string;
-              })._id ?? '',
+              (
+                department as {
+                  _id?: string;
+                }
+              )._id ?? '',
             )
           : String(department);
 
@@ -147,11 +175,15 @@ export class UsersService {
       }
 
       const rawDepartment =
-        typeof department === 'object' && department !== null && '_id' in department
+        typeof department === 'object' &&
+        department !== null &&
+        '_id' in department
           ? String(
-              (department as {
-                _id?: string;
-              })._id ?? '',
+              (
+                department as {
+                  _id?: string;
+                }
+              )._id ?? '',
             )
           : String(department);
 
@@ -164,6 +196,66 @@ export class UsersService {
         department: relatedDepartment ?? department,
       };
     });
+  }
+
+  private getUserAssignmentKeys(user: AssignmentLookupUser): AssignmentKey[] {
+    const rawId = user._id ?? user.id;
+    const idText =
+      rawId instanceof Types.ObjectId
+        ? rawId.toString()
+        : typeof rawId === 'string'
+          ? rawId.trim()
+          : '';
+    const objectId =
+      rawId instanceof Types.ObjectId
+        ? rawId
+        : Types.ObjectId.isValid(idText)
+          ? new Types.ObjectId(idText)
+          : null;
+    const firstName = String(user.firstName ?? '').trim();
+    const lastName = String(user.lastName ?? '').trim();
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    return [
+      objectId,
+      idText,
+      user.email?.toLowerCase().trim(),
+      fullName,
+      firstName,
+      user.name,
+    ].filter(Boolean) as AssignmentKey[];
+  }
+
+  private async assertCanViewUserAssignments(
+    userId: string,
+    currentUser?: RequestUser,
+  ) {
+    if (!currentUser || isAdmin(currentUser)) {
+      return;
+    }
+
+    if (!isManager(currentUser)) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+
+    const managerId = userObjectId(currentUser);
+    if (!managerId) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+
+    const targetId = new Types.ObjectId(userId);
+    if (managerId.equals(targetId)) {
+      return;
+    }
+
+    const allowedUser = await this.userModel.exists({
+      _id: targetId,
+      reportingManager: managerId,
+    });
+
+    if (!allowedUser) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
   }
 
   // =========================================
@@ -210,10 +302,7 @@ export class UsersService {
       }
     }
 
-    const user = await this.userModel
-      .findById(id)
-      .select('-password')
-      .lean();
+    const user = await this.userModel.findById(id).select('-password').lean();
 
     if (!user) {
       throw new NotFoundException(`User ${id} not found`);
@@ -311,13 +400,9 @@ export class UsersService {
           };
 
     const updatedUser = await this.userModel
-      .findByIdAndUpdate(
-        id,
-        updateOperation,
-        {
-          new: true,
-        },
-      )
+      .findByIdAndUpdate(id, updateOperation, {
+        new: true,
+      })
       .select('-password');
 
     if (!updatedUser) {
@@ -370,56 +455,57 @@ export class UsersService {
   }
 
   // =========================================
-  // Get Projects for User
+  // Get Assignments for User
   // =========================================
 
-  async getProjectsForUser(userId: string) {
+  async getAssignmentsForUser(userId: string, currentUser?: RequestUser) {
     this.assertObjectId(userId);
+    await this.assertCanViewUserAssignments(userId, currentUser);
 
-    // Get the user
-    const user = await this.userModel.findById(userId).select('firstName lastName email').lean();
+    const user = await this.userModel
+      .findById(userId)
+      .select('firstName lastName email')
+      .lean();
 
     if (!user) {
       throw new NotFoundException(`User ${userId} not found`);
     }
 
-    // Create user assignment keys to match against leads (all variations)
-    const firstName = user.firstName?.trim() || '';
-    const lastName = user.lastName?.trim() || '';
-    const fullName = `${firstName} ${lastName}`.trim();
-    
-    const assignmentKeys = [
-      String(userId), // Direct ID match
-      user.email?.toLowerCase().trim(), // Email match (case-insensitive)
-      fullName, // Full name match
-      firstName, // First name only
-    ].filter(Boolean);
+    const assignmentKeys = this.getUserAssignmentKeys(user);
 
-    // Find all leads assigned to this user (ALL statuses/phases)
     const leads = await this.leadModel
-      .find({
-        $or: [
-          { assignedTo: { $in: assignmentKeys } },
-          // Also try case-insensitive match for assignedTo
-          { assignedTo: new RegExp(`^${assignmentKeys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}$`, 'i') }
-        ]
-      })
-      .select('_id status')
-      .lean();
-
-    const leadIds = leads.map((lead) => lead._id);
-
-    if (leadIds.length === 0) {
-      return [];
-    }
-
-    // Find all projects for those leads (regardless of lead status)
-    const projects = await this.projectModel
-      .find({ lead: { $in: leadIds } })
-      .populate('lead', 'name email company assignedTo status')
+      .find(buildAssignedToMatch(assignmentKeys))
+      .select(
+        'name email phone company status source services priority assignedTo department leadValue budget currency nextFollowUp createdAt updatedAt',
+      )
       .sort({ createdAt: -1 })
       .lean();
 
-    return projects;
+    const leadIds = leads.map((lead) => lead._id);
+    const projects = leadIds.length
+      ? await this.projectModel
+          .find({ lead: { $in: leadIds } })
+          .populate(
+            'lead',
+            'name email phone company assignedTo services source budget priority status',
+          )
+          .sort({ createdAt: -1 })
+          .lean()
+      : [];
+
+    return {
+      leads,
+      projects,
+    };
+  }
+
+  // =========================================
+  // Get Projects for User
+  // =========================================
+
+  async getProjectsForUser(userId: string, currentUser?: RequestUser) {
+    const assignments = await this.getAssignmentsForUser(userId, currentUser);
+
+    return assignments.projects;
   }
 }

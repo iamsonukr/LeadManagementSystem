@@ -7,6 +7,7 @@ import {
   Lead,
   ProjectRecord,
   TeamMemberRecord,
+  UserAssignments,
   UserRecord,
 } from '@/types';
 import {
@@ -307,5 +308,15 @@ export const usersService = {
   getProjectsForUser: async (id: string): Promise<ProjectRecord[]> => {
     const { data } = await apiClient.get(`/users/${id}/projects`);
     return unwrapApi<unknown[]>(data).map(normalizeProject);
+  },
+
+  getAssignmentsForUser: async (id: string): Promise<UserAssignments> => {
+    const { data } = await apiClient.get(`/users/${id}/assignments`);
+    const payload = unwrapApi<{ leads?: unknown[]; projects?: unknown[] }>(data);
+
+    return {
+      leads: (payload.leads ?? []).map(normalizeLead),
+      projects: (payload.projects ?? []).map(normalizeProject),
+    };
   },
 };

@@ -113,10 +113,10 @@ export default function AddLeadForm({
       return;
     }
 
-    if (form.followUpDate && form.followUpDate < todayDate) {
-      alert('Next follow-up date cannot be in the past.');
-      return;
-    }
+    // if (form.followUpDate && form.followUpDate < todayDate) {
+    //   alert('Next follow-up date cannot be in the past.');
+    //   return;
+    // }
 
     onSave(form);
   };

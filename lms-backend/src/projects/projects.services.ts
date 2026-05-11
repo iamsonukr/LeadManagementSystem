@@ -17,10 +17,14 @@ import {
   UpdateProjectDto,
 } from './projects.dto';
 import {
+  AssignmentKey,
+  buildAssignedToMatch,
   isAdmin,
   isManager,
   RequestUser,
   userAssignmentKeys,
+  userAssignmentIds,
+  userObjectId,
 } from '../auth/roles';
 
 @Injectable()
@@ -39,30 +43,37 @@ export class ProjectsService {
       return null;
     }
 
-    const ownKeys = userAssignmentKeys(user);
-    let assignmentKeys = ownKeys;
+    const assignmentKeys: AssignmentKey[] = [
+      ...userAssignmentIds(user),
+      ...userAssignmentKeys(user),
+    ];
 
     if (isManager(user)) {
-      const teamMembers = await this.userModel
-        .find({ reportingManager: new Types.ObjectId(user.id) })
-        .select('firstName lastName email')
-        .lean();
+      const managerId = userObjectId(user);
+      const teamMembers = managerId
+        ? await this.userModel
+            .find({ reportingManager: managerId })
+            .select('firstName lastName email')
+            .lean()
+        : [];
 
-      assignmentKeys = [
-        ...ownKeys,
+      assignmentKeys.push(
         ...teamMembers.flatMap((member) => {
-          const name = `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim();
-          return [String(member._id), member.email, name].filter(Boolean);
+          const name =
+            `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim();
+          return [member._id, String(member._id), member.email, name].filter(
+            Boolean,
+          );
         }),
-      ];
+      );
     }
 
     const leads = await this.leadModel
-      .find({ assignedTo: { $in: [...new Set(assignmentKeys)] } })
+      .find(buildAssignedToMatch(assignmentKeys))
       .select('_id')
       .lean();
 
-    return leads.map((lead) => lead._id as Types.ObjectId);
+    return leads.map((lead) => lead._id);
   }
 
   private async assertCanAccessProject(id: string, user: RequestUser) {
@@ -126,7 +137,11 @@ export class ProjectsService {
       leadIds = projects.filter((p) => p.lead).map((p) => (p.lead as any)._id);
 
       filter.lead = accessibleLeadIds
-        ? { $in: leadIds.filter((id) => accessibleLeadIds.some((allowed) => allowed.equals(id))) }
+        ? {
+            $in: leadIds.filter((id) =>
+              accessibleLeadIds.some((allowed) => allowed.equals(id)),
+            ),
+          }
         : { $in: leadIds };
     }
 

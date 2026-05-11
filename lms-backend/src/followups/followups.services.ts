@@ -17,10 +17,14 @@ import {
 } from './followups.dto';
 import { assertDateIsTodayOrFuture } from '../common/date-validation';
 import {
+  AssignmentKey,
+  buildAssignedToMatch,
   isAdmin,
   isManager,
   RequestUser,
   userAssignmentKeys,
+  userAssignmentIds,
+  userObjectId,
 } from '../auth/roles';
 
 @Injectable()
@@ -45,21 +49,31 @@ export class FollowupsServices {
       return null;
     }
 
-    const ownKeys = userAssignmentKeys(user);
+    const assignmentKeys: AssignmentKey[] = [
+      ...userAssignmentIds(user),
+      ...userAssignmentKeys(user),
+    ];
+
     if (!isManager(user)) {
-      return ownKeys;
+      return assignmentKeys;
     }
 
-    const teamMembers = await this.userModel
-      .find({ reportingManager: new Types.ObjectId(user.id) })
-      .select('firstName lastName email')
-      .lean();
+    const managerId = userObjectId(user);
+    const teamMembers = managerId
+      ? await this.userModel
+          .find({ reportingManager: managerId })
+          .select('firstName lastName email')
+          .lean()
+      : [];
 
     return [
-      ...ownKeys,
+      ...assignmentKeys,
       ...teamMembers.flatMap((member) => {
-        const name = `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim();
-        return [String(member._id), member.email, name].filter(Boolean);
+        const name =
+          `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim();
+        return [member._id, String(member._id), member.email, name].filter(
+          Boolean,
+        );
       }),
     ];
   }
@@ -71,11 +85,11 @@ export class FollowupsServices {
     }
 
     const leads = await this.leadModel
-      .find({ assignedTo: { $in: [...new Set(assignmentKeys)] } })
+      .find(buildAssignedToMatch(assignmentKeys))
       .select('_id')
       .lean();
 
-    return leads.map((lead) => lead._id as Types.ObjectId);
+    return leads.map((lead) => lead._id);
   }
 
   private async assertCanAccessFollowUp(id: string, user: RequestUser) {
@@ -163,6 +177,9 @@ export class FollowupsServices {
         .limit(limit),
       this.followUpModel.countDocuments(filter),
     ]);
+
+    console.log( 'Follow-up query filter:', filter);
+    console.log( 'Follow-up query data:', data);
 
     return {
       data,

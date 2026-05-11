@@ -24,12 +24,15 @@ import { CallLog, CallLogDocument } from '../calls/calls.entity';
 import { assertDateIsTodayOrFuture } from '../common/date-validation';
 import { User, UserDocument } from '../users/user.entity';
 import {
+  AssignmentKey,
+  buildAssignedToMatch,
   isAdmin,
   isManager,
   isSalesExecutive,
   RequestUser,
   userAssignmentKeys,
   userAssignmentIds,
+  userObjectId,
 } from '../auth/roles';
 
 const LEAD_NEXT_FOLLOWUP_SOURCE = 'lead-next-followup';
@@ -60,20 +63,32 @@ export class LeadServices {
       return {};
     }
 
-    const ownKeys = userAssignmentIds(user);
+    const assignmentKeys: AssignmentKey[] = [
+      ...userAssignmentIds(user),
+      ...userAssignmentKeys(user),
+    ];
 
     if (isManager(user)) {
-      const teamMembers = await this.userModel
-        .find({ reportingManager: new Types.ObjectId(user.id) })
-        .select('_id')
-        .lean();
+      const managerId = userObjectId(user);
+      const teamMembers = managerId
+        ? await this.userModel
+            .find({ reportingManager: managerId })
+            .select('firstName lastName email')
+            .lean()
+        : [];
 
-      const teamKeys = teamMembers.map((member) => member._id);
-
-      return { assignedTo: { $in: [...ownKeys, ...teamKeys] } };
+      assignmentKeys.push(
+        ...teamMembers.flatMap((member) => {
+          const name =
+            `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim();
+          return [member._id, String(member._id), member.email, name].filter(
+            Boolean,
+          );
+        }),
+      );
     }
 
-    return { assignedTo: { $in: ownKeys } };
+    return { $and: [buildAssignedToMatch(assignmentKeys)] };
   }
 
   private async assertCanAccessLead(id: string, user: RequestUser) {
@@ -104,9 +119,8 @@ export class LeadServices {
       limit = 10,
     } = query;
 
-    const filter: Record<string, unknown> = await this.getAccessibleLeadFilter(
-      user,
-    );
+    const filter: Record<string, unknown> =
+      await this.getAccessibleLeadFilter(user);
 
     // Filters
 
@@ -123,21 +137,10 @@ export class LeadServices {
     }
 
     if (assignedTo) {
-      const scopedAssignment = filter.assignedTo as
-        | { $in?: Types.ObjectId[] }
-        | Types.ObjectId
-        | undefined;
-
-      if (
-        scopedAssignment &&
-        typeof scopedAssignment === 'object' && '$in' in scopedAssignment && Array.isArray((scopedAssignment as any).$in)
-      ) {
-        filter.assignedTo = (scopedAssignment as any).$in.find((id: any) => String(id) === assignedTo)
-          ? new Types.ObjectId(assignedTo as string)
-          : { $in: [] };
-      } else {
-        filter.assignedTo = Types.ObjectId.isValid(assignedTo as string) ? new Types.ObjectId(assignedTo as string) : null;
-      }
+      filter.$and = [
+        ...((filter.$and as Record<string, unknown>[] | undefined) ?? []),
+        buildAssignedToMatch([assignedTo]),
+      ];
     }
 
     // Search

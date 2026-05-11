@@ -74,6 +74,11 @@ export interface ProjectRecord {
   source: LeadSource;
 }
 
+export interface UserAssignments {
+  leads: Lead[];
+  projects: ProjectRecord[];
+}
+
 export interface FollowUpRecord {
   id: string;
   leadId: string;

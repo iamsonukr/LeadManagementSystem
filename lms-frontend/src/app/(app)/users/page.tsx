@@ -14,9 +14,11 @@ import {
   changeUserPassword,
 } from "@/store/slices/usersSlice";
 import { fetchTeamMembers } from "@/store/slices/teamMembersSlice";
-import { UserRecord, ProjectRecord } from "@/types";
+import { UserAssignments, UserRecord } from "@/types";
 import { usersService } from "@/services";
-import { Pencil, FolderOpen, KeyRound, Trash2 } from "lucide-react";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { PriorityBadge, StatusBadge } from "@/components/ui/Badge";
+import { ClipboardList, Pencil, KeyRound, Trash2 } from "lucide-react";
 
 function userToFormData(user: UserRecord): UserFormData {
   return {
@@ -52,7 +54,7 @@ export default function UsersPage() {
   const [deletingUser, setDeletingUser] = useState<UserRecord | null>(null);
   const [passwordUser, setPasswordUser] = useState<UserRecord | null>(null);
   const [projectsUser, setProjectsUser] = useState<UserRecord | null>(null);
-  const [userProjects, setUserProjects] = useState<ProjectRecord[]>([]);
+  const [userAssignments, setUserAssignments] = useState<UserAssignments>({ leads: [], projects: [] });
   const [loadingProjects, setLoadingProjects] = useState(false);
 
   const departmentOptions = departments
@@ -85,11 +87,11 @@ export default function UsersPage() {
     setProjectsUser(user);
     setLoadingProjects(true);
     try {
-      const projects = await usersService.getProjectsForUser(user.id);
-      setUserProjects(projects);
+      const assignments = await usersService.getAssignmentsForUser(user.id);
+      setUserAssignments(assignments);
     } catch (err) {
-      console.error("Error fetching user projects:", err);
-      setUserProjects([]);
+      console.error("Error fetching user assignments:", err);
+      setUserAssignments({ leads: [], projects: [] });
     } finally {
       setLoadingProjects(false);
     }
@@ -153,10 +155,10 @@ export default function UsersPage() {
 
                       <button
                         onClick={() => handleViewProjects(u)}
-                        title="View Projects"
+                        title="View Assignments"
                         className="p-2 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors"
                       >
-                        <FolderOpen size={16} />
+                        <ClipboardList size={16} />
                       </button>
 
                       <button
@@ -222,52 +224,96 @@ export default function UsersPage() {
           />
         )}
       </Modal>
-      <Modal open={!!projectsUser} onClose={() => setProjectsUser(null)} title={`Projects for ${projectsUser?.name}`} subtitle="View all projects assigned to this user" size="lg">
-        <div className="space-y-3">
+      <Modal open={!!projectsUser} onClose={() => setProjectsUser(null)} title={`Assignments for ${projectsUser?.name}`} subtitle="View all leads and projects assigned to this user" size="lg">
+        <div className="space-y-5">
           {loadingProjects ? (
-            <div className="text-center py-6 text-gray-500">Loading projects...</div>
-          ) : userProjects.length === 0 ? (
-            <div className="text-center py-6 text-gray-500">No projects assigned to this user.</div>
+            <div className="text-center py-6 text-gray-500">Loading assignments...</div>
+          ) : userAssignments.leads.length === 0 && userAssignments.projects.length === 0 ? (
+            <div className="text-center py-6 text-gray-500">No leads or projects assigned to this user.</div>
           ) : (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {userProjects.map(project => (
-                <div key={project.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900 text-sm">{project.name}</h4>
-                      <p className="text-xs text-gray-500 mt-1">Status: <span className="font-medium text-gray-700">{project.status}</span></p>
-                    </div>
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${project.priority === 'High' ? 'bg-red-50 text-red-700' :
-                        project.priority === 'Medium' ? 'bg-yellow-50 text-yellow-700' :
-                          'bg-green-50 text-green-700'
-                      }`}>
-                      {project.priority}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
-                    <div>
-                      <span className="text-gray-500">Budget:</span>
-                      <p className="font-medium text-gray-700">${project.budget?.toLocaleString() || '0'}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Amount Received:</span>
-                      <p className="font-medium text-gray-700">${project.amountReceived?.toLocaleString() || '0'}</p>
-                    </div>
-                  </div>
-                  {project.services && project.services.length > 0 && (
-                    <div className="mt-3">
-                      <span className="text-xs text-gray-500">Services:</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {project.services.map((service, idx) => (
-                          <span key={idx} className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">
-                            {service}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+            <div className="max-h-[32rem] space-y-5 overflow-y-auto pr-1">
+              <section className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">Assigned Leads</h3>
+                  <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">{userAssignments.leads.length}</span>
                 </div>
-              ))}
+                {userAssignments.leads.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-gray-200 p-4 text-center text-sm text-gray-400">No assigned leads.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {userAssignments.leads.map((lead) => (
+                      <div key={lead.id} className="rounded-lg border border-gray-200 p-4 hover:bg-gray-50">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="truncate text-sm font-semibold text-gray-900">{lead.name}</h4>
+                            <p className="mt-1 truncate text-xs text-gray-500">{lead.company || lead.email}</p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <StatusBadge status={lead.status} />
+                            <PriorityBadge priority={lead.priority} />
+                          </div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-gray-500">Value:</span>
+                            <p className="font-medium text-gray-700">{formatCurrency(lead.leadValue || lead.budget, lead.currency)}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Next Follow-up:</span>
+                            <p className="font-medium text-gray-700">{lead.nextFollowUp ? formatDate(lead.nextFollowUp) : "Not scheduled"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">Assigned Projects</h3>
+                  <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">{userAssignments.projects.length}</span>
+                </div>
+                {userAssignments.projects.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-gray-200 p-4 text-center text-sm text-gray-400">No assigned projects.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {userAssignments.projects.map(project => (
+                      <div key={project.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900 text-sm">{project.name}</h4>
+                            <p className="text-xs text-gray-500 mt-1">Status: <span className="font-medium text-gray-700">{project.status}</span></p>
+                          </div>
+                          <PriorityBadge priority={project.priority} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
+                          <div>
+                            <span className="text-gray-500">Budget:</span>
+                            <p className="font-medium text-gray-700">{formatCurrency(project.budget)}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Amount Received:</span>
+                            <p className="font-medium text-gray-700">{formatCurrency(project.amountReceived)}</p>
+                          </div>
+                        </div>
+                        {project.services && project.services.length > 0 && (
+                          <div className="mt-3">
+                            <span className="text-xs text-gray-500">Services:</span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {project.services.map((service, idx) => (
+                                <span key={idx} className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">
+                                  {service}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
             </div>
           )}
         </div>

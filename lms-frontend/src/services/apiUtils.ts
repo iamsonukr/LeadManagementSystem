@@ -90,7 +90,7 @@ export const normalizeLead = (raw: unknown): Lead => {
     services: Array.isArray(item.services) ? item.services.map(String) : [],
     source: (item.source as Lead['source']) ?? 'Other',
     priority: (item.priority as Lead['priority']) ?? 'Medium',
-    assignedTo: String(item.assignedTo ?? ''),
+    assignedTo: getRefId(item.assignedTo as MongoRef<UserRecord>),
     department: getDepartmentName(item.department),
     leadValue: Number(item.leadValue ?? 0),
     stageProbability: Number(item.stageProbability ?? 0),
@@ -180,7 +180,7 @@ export const normalizeProject = (
   return {
     id: getId(item),
 
-    leadId: String(lead._id ?? ''),
+    leadId: getRefId(item.lead as MongoRef<Lead>),
 
     // =========================================
     // Lead Data

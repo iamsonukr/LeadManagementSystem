@@ -70,16 +70,17 @@ export default function AddFollowUpForm({ onSave, onClose, initialData, mode = '
     };
 
   const handleSave = () => {
-    if (form.dueAt && form.dueAt.slice(0, 10) < todayDate) {
-      alert('Follow-up date cannot be in the past.');
-      return;
-    }
+    // if (form.dueAt && form.dueAt.slice(0, 10) < todayDate) {
+    //   alert('Follow-up date cannot be in the past.');
+    //   return;
+    // }
 
     onSave(form);
   };
 
   return (
     <div className="space-y-6">
+      
       <div className="flex items-center justify-between border-b pb-3">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100">

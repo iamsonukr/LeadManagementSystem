@@ -2,6 +2,7 @@ import { UsersService } from './../users/user.services';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { Types } from 'mongoose';
 
 export interface AuthenticatedUser {
   id: string;
@@ -15,7 +16,8 @@ export interface AuthenticatedUser {
 }
 
 type AuthLookupUser = {
-  id: string;
+  id?: string;
+  _id?: unknown;
   firstName?: string;
   lastName?: string;
   name?: string;
@@ -44,13 +46,31 @@ export class AuthService {
 
     if (typeof department === 'object' && 'name' in department) {
       return String(
-        (department as {
-          name?: string;
-        }).name ?? '',
+        (
+          department as {
+            name?: string;
+          }
+        ).name ?? '',
       );
     }
 
     return null;
+  }
+
+  private getUserId(user: AuthLookupUser): string {
+    if (user.id) {
+      return user.id;
+    }
+
+    if (typeof user._id === 'string') {
+      return user._id;
+    }
+
+    if (user._id instanceof Types.ObjectId) {
+      return user._id.toString();
+    }
+
+    return '';
   }
 
   async validateUser(
@@ -68,9 +88,10 @@ export class AuthService {
       `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() ||
       (user as typeof user & { name?: string }).name ||
       user.email;
+    const id = this.getUserId(user);
 
     return {
-      id: user.id,
+      id,
       name: displayName,
       email: user.email,
       role: user.role,

@@ -61,6 +61,29 @@ describe('AuthService', () => {
     });
   });
 
+  it('uses _id from lean user lookups when id is not projected', async () => {
+    const hashedPassword = await bcrypt.hash('secret123', 10);
+    const service = makeService(
+      jest.fn().mockResolvedValue({
+        _id: '507f1f77bcf86cd799439011',
+        firstName: 'Sales',
+        lastName: 'User',
+        email: 'sales@example.com',
+        password: hashedPassword,
+        role: 'Sales Executive',
+      }),
+    );
+
+    const result = await service.login('sales@example.com', 'secret123');
+
+    expect(result.user.id).toBe('507f1f77bcf86cd799439011');
+    expect(signMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sub: '507f1f77bcf86cd799439011',
+      }),
+    );
+  });
+
   it('rejects invalid credentials', async () => {
     const hashedPassword = await bcrypt.hash('secret123', 10);
     const service = makeService(

@@ -62,8 +62,27 @@ export class UsersController {
   @ApiOperation({
     summary: 'Get projects assigned to a user',
   })
-  getProjectsForUser(@Param('id') id: string) {
-    return this.service.getProjectsForUser(id);
+  getProjectsForUser(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.getProjectsForUser(id, user);
+  }
+
+  // =========================================
+  // Get Assignments for User
+  // =========================================
+
+  @Get(':id/assignments')
+  @Roles(ROLES.ADMIN, ROLES.MANAGER)
+  @ApiOperation({
+    summary: 'Get leads and projects assigned to a user',
+  })
+  getAssignmentsForUser(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.service.getAssignmentsForUser(id, user);
   }
 
   // =========================================
