@@ -5,7 +5,6 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
-  "packageManager": "npm@10.9.2",
   "engines": {
     "node": "22.x",
     "npm": "10.x"
