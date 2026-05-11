@@ -41,10 +41,11 @@ async function bootstrap() {
 
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.PORT ?? 4000;
-  await app.listen(port);
-  console.log(`CRM API running on http://localhost:${port}`);
-  console.log(`Swagger docs at http://localhost:${port}/api/docs`);
+  const port = Number(process.env.PORT) || 4000;
+  const host = process.env.HOST || '0.0.0.0';
+  await app.listen(port, host);
+  console.log(`CRM API running on http://${host}:${port}`);
+  console.log(`Swagger docs at http://${host}:${port}/api/docs`);
 }
 
 void bootstrap();
