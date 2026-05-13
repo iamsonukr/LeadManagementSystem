@@ -11,9 +11,11 @@ import { Project, ProjectSchema } from '../projects/projects.entity';
 import { FollowUp, FollowUpSchema } from '../followups/followups.entity';
 import { CallLog, CallLogSchema } from '../calls/calls.entity';
 import { User, UserSchema } from '../users/user.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
+    NotificationsModule,
     MongooseModule.forFeature([
       {
         name: Lead.name,

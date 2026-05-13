@@ -5,9 +5,11 @@ import { FollowupsController } from './followups.controller';
 import { FollowupsServices } from './followups.services';
 import { Lead, LeadSchema } from '../leads/leads.entity';
 import { User, UserSchema } from '../users/user.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
+    NotificationsModule,
     MongooseModule.forFeature([
       { name: FollowUp.name, schema: FollowUpSchema },
       { name: Lead.name, schema: LeadSchema },

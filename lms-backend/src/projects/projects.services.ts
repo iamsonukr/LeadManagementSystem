@@ -10,6 +10,7 @@ import { Model, Types } from 'mongoose';
 import { Project, ProjectDocument } from './projects.entity';
 import { Lead, LeadDocument } from '../leads/leads.entity';
 import { User, UserDocument } from '../users/user.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 import {
   CreateProjectDto,
@@ -36,6 +37,7 @@ export class ProjectsService {
     private readonly leadModel: Model<LeadDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private async getAccessibleLeadIds(user: RequestUser) {
@@ -134,7 +136,22 @@ export class ProjectsService {
         select: '_id',
       });
 
-      leadIds = projects.filter((p) => p.lead).map((p) => (p.lead as any)._id);
+      leadIds = projects
+        .map((project) => {
+          const lead = project.lead as unknown;
+          if (!lead || typeof lead !== 'object') {
+            return null;
+          }
+
+          const rawId = (lead as { _id?: unknown })._id;
+          if (rawId instanceof Types.ObjectId) {
+            return rawId;
+          }
+
+          const id = typeof rawId === 'string' ? rawId : '';
+          return Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : null;
+        })
+        .filter((id): id is Types.ObjectId => Boolean(id));
 
       filter.lead = accessibleLeadIds
         ? {
@@ -221,7 +238,7 @@ export class ProjectsService {
       lead: new Types.ObjectId(dto.lead),
     });
 
-    return project.populate(
+    const populatedProject = await project.populate(
       'lead',
       `
         name
@@ -236,6 +253,12 @@ export class ProjectsService {
         status
       `,
     );
+
+    await this.notificationsService.createProjectAssignmentNotification(
+      populatedProject,
+    );
+
+    return populatedProject;
   }
 
   async update(id: string, dto: UpdateProjectDto) {
@@ -245,8 +268,17 @@ export class ProjectsService {
       throw new BadRequestException('Invalid project id');
     }
 
+    const existingProject = await this.projectModel
+      .findById(id)
+      .select('owner')
+      .lean();
+
+    if (!existingProject) {
+      throw new NotFoundException('Project not found');
+    }
+
     const cleanDto = Object.fromEntries(
-      Object.entries(dto).filter(([_, value]) => value !== undefined),
+      Object.entries(dto).filter(([, value]) => value !== undefined),
     );
 
     if (cleanDto.lead) {
@@ -278,6 +310,17 @@ export class ProjectsService {
     if (!updatedProject) {
       throw new NotFoundException('Project not found');
     }
+
+    if (
+      dto.owner !== undefined &&
+      String(dto.owner || '') !== String(existingProject.owner || '') &&
+      dto.owner
+    ) {
+      await this.notificationsService.createProjectAssignmentNotification(
+        updatedProject,
+      );
+    }
+
     return updatedProject;
   }
 

@@ -3,6 +3,7 @@ import {
   Company,
   FollowUpRecord,
   Lead,
+  NotificationRecord,
   ProjectRecord,
   TeamMemberRecord,
   UserRecord,
@@ -164,6 +165,21 @@ export const normalizeFollowUp = (raw: unknown): FollowUpRecord => {
     completedAt: item.completedAt ? String(item.completedAt) : undefined,
     notes: String(item.notes ?? ''),
     nextAction: String(item.nextAction ?? lead.nextAction ?? ''),
+    createdAt: String(item.createdAt ?? new Date().toISOString()),
+  };
+};
+
+export const normalizeNotification = (raw: unknown): NotificationRecord => {
+  const item = asRecord(raw);
+
+  return {
+    id: getId(item),
+    user: String(item.user ?? ''),
+    type: (item.type as NotificationRecord['type']) ?? 'upcoming_follow_up',
+    title: String(item.title ?? ''),
+    message: String(item.message ?? ''),
+    relatedId: String(item.relatedId ?? ''),
+    isRead: Boolean(item.isRead),
     createdAt: String(item.createdAt ?? new Date().toISOString()),
   };
 };

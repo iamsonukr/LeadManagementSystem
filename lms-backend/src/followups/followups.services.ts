@@ -10,6 +10,7 @@ import { Model, QueryFilter, Types } from 'mongoose';
 import { FollowUp, FollowUpDocument } from './followups.entity';
 import { Lead, LeadDocument } from '../leads/leads.entity';
 import { User, UserDocument } from '../users/user.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   CreateFollowUpDto,
   FollowUpFilterDto,
@@ -36,6 +37,7 @@ export class FollowupsServices {
     private leadModel: Model<LeadDocument>,
     @InjectModel(User.name)
     private userModel: Model<UserDocument>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private assertObjectId(id: string, label: string) {
@@ -126,6 +128,8 @@ export class FollowupsServices {
       owner: dto.owner || user.name || user.email,
     });
 
+    await this.notificationsService.createFollowUpNotification(followup);
+
     return followup.populate('lead');
   }
 
@@ -178,8 +182,8 @@ export class FollowupsServices {
       this.followUpModel.countDocuments(filter),
     ]);
 
-    console.log( 'Follow-up query filter:', filter);
-    console.log( 'Follow-up query data:', data);
+    console.log('Follow-up query filter:', filter);
+    console.log('Follow-up query data:', data);
 
     return {
       data,

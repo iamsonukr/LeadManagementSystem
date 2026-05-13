@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Bell, Search, ChevronDown, Calendar, LogOut, User, Settings, Menu } from 'lucide-react';
+import { ChevronDown, Calendar, LogOut, User, Settings, Menu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDispatch } from 'react-redux';
 import { toggleSidebar } from '@/store/slices/uiSlice';
 import { useRouter } from 'next/navigation';
+import NotificationBell from '@/components/notifications/NotificationBell';
 
 export default function AppHeader() {
   const { user, logout } = useAuth();
@@ -20,7 +21,7 @@ export default function AppHeader() {
   return (
     <header className="fixed top-0 left-0 md:left-[220px] right-0 h-[60px] bg-white border-b border-gray-100 flex items-center justify-between px-4 md:px-6 z-20">
       {/* <div className="flex items-center gap-2">
-        <button 
+        <button
           className="md:hidden p-1.5 -ml-1.5 mr-1 rounded-md text-gray-500 hover:bg-gray-100"
           onClick={() => dispatch(toggleSidebar())}
         >
@@ -32,8 +33,19 @@ export default function AppHeader() {
         <ChevronDown size={13} className="text-gray-400" />
       </div>
       </div> */}
-      <div>
-
+      <div className="flex items-center gap-2">
+        <button
+          className="md:hidden p-1.5 -ml-1.5 mr-1 rounded-md text-gray-600 hover:bg-gray-100"
+          onClick={() => dispatch(toggleSidebar())}
+          aria-label="Open sidebar"
+        >
+          <Menu size={20} className="text-gray-600" />
+        </button>
+        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-600 cursor-pointer hover:bg-gray-100 transition-colors">
+          <Calendar size={14} className="text-gray-400" />
+          <span>May 12 – May 18, 2024</span>
+          <ChevronDown size={13} className="text-gray-400" />
+        </div>
       </div>
 
       {/* Right */}
@@ -44,13 +56,7 @@ export default function AppHeader() {
           <input type="text" placeholder="Search..." className="bg-transparent text-sm text-gray-600 outline-none w-full placeholder:text-gray-400" />
         </div> */}
 
-        {/* Bell */}
-        {/* <div className="relative cursor-pointer">
-          <div className="w-9 h-9 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors">
-            <Bell size={16} className="text-gray-500" />
-          </div>
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[9px] font-bold text-white">3</span>
-        </div> */}
+        <NotificationBell />
 
         {/* User menu */}
         <div className="relative">

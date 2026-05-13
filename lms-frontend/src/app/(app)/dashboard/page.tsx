@@ -13,18 +13,21 @@ import FollowUpOverviewWidget from '@/components/dashboard/FollowUpOverviewWidge
 import TopSourcesWidget from '@/components/dashboard/TopSourcesWidget';
 import LeadsByLocationWidget from '@/components/dashboard/LeadsByLocationWidget';
 import LeadsByAssigneeWidget from '@/components/dashboard/LeadsByAssigneeWidget';
+import { useNotifications } from '@/components/notifications/NotificationProvider';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { fetchDashboardStats, fetchLeads } from '@/store/slices/leadsSlice';
 
 export default function DashboardPage() {
   const dispatch = useAppDispatch();
+  const { checkReminders } = useNotifications();
   const dashboardStats = useAppSelector((state) => state.leads.dashboardStats);
 
   useEffect(() => {
     dispatch(fetchDashboardStats());
     dispatch(fetchLeads({ limit: 5 }));
-  }, [dispatch]);
+    void checkReminders();
+  }, [checkReminders, dispatch]);
 
   return (
     <div className="space-y-5 p-4 sm:p-6">

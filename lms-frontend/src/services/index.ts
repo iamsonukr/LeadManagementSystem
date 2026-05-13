@@ -22,6 +22,7 @@ import {
   unwrapApi,
 } from './apiUtils';
 import leadsService from './leadsService';
+export { default as notificationsService } from './notificationsService';
 
 // ─── Calls ─────────────────────────────────────────────────────
 export const callsService = {

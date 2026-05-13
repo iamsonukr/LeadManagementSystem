@@ -187,3 +187,20 @@ export interface FollowUpOverview {
   completed: number;
   overdue: number;
 }
+
+export type NotificationType =
+  | 'lead_assigned'
+  | 'project_assigned'
+  | 'upcoming_follow_up'
+  | 'overdue_follow_up';
+
+export interface NotificationRecord {
+  id: string;
+  user: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  relatedId: string;
+  isRead: boolean;
+  createdAt: string;
+}

@@ -5,9 +5,11 @@ import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.services';
 import { Lead, LeadSchema } from '../leads/leads.entity';
 import { User, UserSchema } from '../users/user.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
+    NotificationsModule,
     MongooseModule.forFeature([
       { name: Project.name, schema: ProjectSchema },
       { name: Lead.name, schema: LeadSchema },

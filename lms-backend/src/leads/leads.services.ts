@@ -23,6 +23,7 @@ import { FollowUp, FollowUpDocument } from '../followups/followups.entity';
 import { CallLog, CallLogDocument } from '../calls/calls.entity';
 import { assertDateIsTodayOrFuture } from '../common/date-validation';
 import { User, UserDocument } from '../users/user.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   AssignmentKey,
   buildAssignedToMatch,
@@ -56,6 +57,8 @@ export class LeadServices {
 
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private async getAccessibleLeadFilter(user: RequestUser) {
@@ -240,6 +243,7 @@ export class LeadServices {
     });
 
     await this.syncLeadNextFollowUp(lead);
+    await this.notificationsService.createLeadAssignmentNotification(lead);
 
     return lead;
   }
@@ -290,7 +294,7 @@ export class LeadServices {
 
     // Remove undefined fields
     const cleanDto = Object.fromEntries(
-      Object.entries(dto).filter(([_, value]) => value !== undefined),
+      Object.entries(dto).filter(([, value]) => value !== undefined),
     );
 
     // Normalize email
@@ -319,6 +323,19 @@ export class LeadServices {
     await this.syncLeadNextFollowUp(updatedLead);
     if (dto.status) {
       await this.syncStatusFollowUp(updatedLead);
+    }
+
+    const previousAssignee = existingLeadForAccess.assignedTo
+      ? String(existingLeadForAccess.assignedTo)
+      : '';
+    const nextAssignee = updatedLead.assignedTo
+      ? String(updatedLead.assignedTo)
+      : '';
+
+    if (nextAssignee && nextAssignee !== previousAssignee) {
+      await this.notificationsService.createLeadAssignmentNotification(
+        updatedLead,
+      );
     }
 
     return updatedLead;
@@ -373,9 +390,13 @@ export class LeadServices {
       });
 
       if (!existingProject) {
-        await this.projectModel.create({
+        const project = await this.projectModel.create({
           lead: updatedLead._id,
         });
+        await this.notificationsService.createProjectAssignmentNotification(
+          project,
+          updatedLead,
+        );
       }
     }
 
@@ -449,7 +470,7 @@ export class LeadServices {
       return;
     }
 
-    await this.followUpModel.findOneAndUpdate(
+    const followup = await this.followUpModel.findOneAndUpdate(
       filter,
       {
         $set: {
@@ -469,6 +490,13 @@ export class LeadServices {
       },
       { new: true, upsert: true },
     );
+
+    if (followup) {
+      await this.notificationsService.createFollowUpNotification(
+        followup,
+        lead,
+      );
+    }
   }
 
   private async syncStatusFollowUp(lead: LeadDocument) {
@@ -491,7 +519,7 @@ export class LeadServices {
 
     const dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    await this.followUpModel.findOneAndUpdate(
+    const followup = await this.followUpModel.findOneAndUpdate(
       filter,
       {
         $set: {
@@ -509,5 +537,12 @@ export class LeadServices {
       },
       { new: true, upsert: true },
     );
+
+    if (followup) {
+      await this.notificationsService.createFollowUpNotification(
+        followup,
+        lead,
+      );
+    }
   }
 }
