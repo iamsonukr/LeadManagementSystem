@@ -11,6 +11,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { GoogleAdsModule } from './google-ads/google-ads.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     DashboardModule,
     IntegrationsModule,
     NotificationsModule,
+    GoogleAdsModule,
   ],
 })
 export class AppModule {}
