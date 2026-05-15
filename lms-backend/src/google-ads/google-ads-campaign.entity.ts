@@ -4,12 +4,12 @@ import { Document } from 'mongoose';
 export type GoogleAdsCampaignDocument = GoogleAdsCampaign & Document;
 
 export interface ColumnMapping {
-  name: string;
-  email: string;
-  phone: string;
-  company: string;
-  message: string;
-  [key: string]: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  message?: string;
+  [key: string]: string | undefined;
 }
 
 @Schema({ timestamps: true, collection: 'google_ads_campaigns' })
@@ -24,7 +24,7 @@ export class GoogleAdsCampaign {
   sheetUrl!: string;
 
   // Per-campaign lead source label chosen by admin
-  @Prop({ default: 'Google Form' })
+  @Prop({ default: 'Google Ads' })
   leadSource!: string;
 
   // Column mapping: maps our field names → actual sheet column headers

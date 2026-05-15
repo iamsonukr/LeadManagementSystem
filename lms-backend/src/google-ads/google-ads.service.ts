@@ -3,10 +3,11 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  OnModuleDestroy,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Cron, CronExpression } from '@nestjs/schedule';
 
 import {
   GoogleAdsCampaign,
@@ -109,8 +110,9 @@ function csvExportUrl(url: string): string | null {
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
-export class GoogleAdsService {
+export class GoogleAdsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(GoogleAdsService.name);
+  private autoSyncTimer?: NodeJS.Timeout;
 
   constructor(
     @InjectModel(GoogleAdsCampaign.name)
@@ -120,17 +122,31 @@ export class GoogleAdsService {
     private readonly leadModel: Model<LeadDocument>,
   ) {}
 
+  onModuleInit() {
+    this.autoSyncTimer = setInterval(
+      () => void this.autoSyncAll(),
+      5 * 60 * 1000,
+    );
+  }
+
+  onModuleDestroy() {
+    if (this.autoSyncTimer) {
+      clearInterval(this.autoSyncTimer);
+    }
+  }
+
   // ══════════════════════════════════════════════════════════════════
   // CAMPAIGN CRUD
   // ══════════════════════════════════════════════════════════════════
 
   async createCampaign(dto: CreateGoogleAdsCampaignDto) {
+    const columnMapping: ColumnMapping = { ...(dto.columnMapping ?? {}) };
     const campaign = await this.campaignModel.create({
       clientName: dto.clientName,
       campaignName: dto.campaignName,
       sheetUrl: dto.sheetUrl,
-      leadSource: dto.leadSource ?? 'Google Form',
-      columnMapping: dto.columnMapping ?? {},
+      leadSource: dto.leadSource ?? 'Google Ads',
+      columnMapping,
     });
     return campaign;
   }
@@ -277,7 +293,6 @@ export class GoogleAdsService {
   // AUTO-SYNC — every 15 minutes for all active campaigns
   // ══════════════════════════════════════════════════════════════════
 
-  @Cron(CronExpression.EVERY_5_MINUTES) // runs every 5 min, but skips if last sync < 15m ago
   async autoSyncAll() {
     const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000);
     const campaigns = await this.campaignModel.find({
@@ -308,6 +323,8 @@ export class GoogleAdsService {
   async fetchSheetRows(url: string): Promise<SheetRow[]> {
     // Strategy 1: Google Sheets API v4 (needs API key in env)
     const apiKey = process.env.GOOGLE_SHEETS_API_KEY;
+    console.log(apiKey , "Checking for API key...");
+    console.log(`Fetching sheet rows from URL: ${url}`);
     const sheetId = extractSheetId(url);
 
     if (apiKey && sheetId) {
@@ -407,17 +424,18 @@ export class GoogleAdsService {
           email: email || `noemail.${Date.now()}@unknown.com`,
           phone,
           company,
-          source: campaign.leadSource ?? 'Google Form',
+          source: campaign.leadSource ?? 'Google Ads',
           status: 'New',
           priority: 'Medium',
-          notes: message || `Imported via Google Form campaign: ${campaign.campaignName}`,
-          tags: ['Google Form', campaign.campaignName],
+          notes: message || `Imported via Google Ads campaign: ${campaign.campaignName}`,
+          tags: ['Google Ads', campaign.campaignName],
           currency: 'USD',
-          // Campaign metadata stored so we can filter by campaign
-          'metadata.source': 'Google Form',
-          'metadata.clientName': campaign.clientName,
-          'metadata.campaignName': campaign.campaignName,
-          'metadata.campaignId': String(campaign._id),
+          metadata: {
+            source: 'Google Ads',
+            clientName: campaign.clientName,
+            campaignName: campaign.campaignName,
+            campaignId: String(campaign._id),
+          },
         });
 
         imported++;
@@ -426,7 +444,6 @@ export class GoogleAdsService {
         this.logger.warn(`Row import error: ${(err as Error).message}`);
       }
     }
-
     return { rowsFetched: rows.length, imported, skipped, errors };
   }
 

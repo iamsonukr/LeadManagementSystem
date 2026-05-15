@@ -27,7 +27,7 @@ export default function CreateCampaignForm({ onSave, onCancel, isSubmitting }: P
   const [clientName,    setClientName]    = useState('');
   const [campaignName,  setCampaignName]  = useState('');
   const [sheetUrl,      setSheetUrl]      = useState('');
-  const [leadSource,    setLeadSource]    = useState('Google Form');
+  const [leadSource,    setLeadSource]    = useState('Google Ads');
 
   // Step 2: column mapping
   const [sheetHeaders, setSheetHeaders]   = useState<string[]>([]);
@@ -82,7 +82,7 @@ export default function CreateCampaignForm({ onSave, onCancel, isSubmitting }: P
         </h2>
         <p className="mt-0.5 text-xs text-gray-500">
           {step === 'details'
-            ? 'Connect a Google Sheet that collects Google Form responses.'
+            ? 'Connect a Google Sheet that collects campaign lead responses.'
             : 'Tell us which sheet column maps to each lead field. Auto-detected values are pre-filled.'}
         </p>
       </div>
@@ -151,7 +151,7 @@ export default function CreateCampaignForm({ onSave, onCancel, isSubmitting }: P
             <input
               value={leadSource}
               onChange={(e) => setLeadSource(e.target.value)}
-              placeholder="Google Form"
+              placeholder="Google Ads"
               className={inputCls}
             />
             <p className="mt-1 text-[11px] text-gray-400">

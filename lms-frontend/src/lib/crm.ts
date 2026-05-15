@@ -23,6 +23,8 @@ export const leadSourceOptions: LeadSource[] = [
   'WhatsApp',
   'Facebook',
   'LinkedIn',
+  'Google Ads',
+  'Google Form',
   'Other',
 ];
 

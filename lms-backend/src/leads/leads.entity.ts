@@ -103,6 +103,9 @@ export class Lead {
   @Prop({ type: Number })
   aiScore?: number;
 
+  @Prop({ type: Object, default: {} })
+  metadata?: Record<string, string>;
+
   // =========================
   // Follow-up / Calls
   // =========================

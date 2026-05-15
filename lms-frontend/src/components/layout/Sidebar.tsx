@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, CheckSquare,
-  Phone, BarChart2, UserCog, Settings, CalendarClock, X
+  Phone, BarChart2, UserCog, Settings, CalendarClock, X, Megaphone
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDispatch, useSelector } from 'react-redux';
@@ -17,6 +17,7 @@ import { canAccessPath } from '@/lib/rbac';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/leads', label: 'Leads', icon: Users },
+  { href: '/google-ads/campaigns', label: 'Google Ads', icon: Megaphone },
   { href: '/followups', label: 'Follow Ups', icon: CalendarClock },
   // { href: '/contacts', label: 'Contacts', icon: UserCircle },
   // { href: '/companies', label: 'Companies', icon: Building2 },

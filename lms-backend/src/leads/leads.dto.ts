@@ -39,6 +39,8 @@ const SOURCES = [
   'WhatsApp',
   'Facebook',
   'LinkedIn',
+  'Google Ads',
+  'Google Form',
   'Other',
 ] as const;
 

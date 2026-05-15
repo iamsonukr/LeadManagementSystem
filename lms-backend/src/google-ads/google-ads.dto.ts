@@ -49,7 +49,7 @@ export class CreateGoogleAdsCampaignDto {
   @IsString()
   sheetUrl!: string;
 
-  @ApiPropertyOptional({ example: 'Google Form' })
+  @ApiPropertyOptional({ example: 'Google Ads' })
   @IsOptional()
   @IsString()
   leadSource?: string;

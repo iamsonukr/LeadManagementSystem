@@ -89,7 +89,7 @@ export default function CampaignListPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Google Ads — Campaigns</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Connect Google Sheets that collect Google Form leads. Leads are synced every 15 minutes automatically.
+            Connect Google Sheets that collect campaign leads. Leads are synced every 15 minutes automatically.
           </p>
           {error && (
             <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5 text-xs text-red-600">
@@ -134,7 +134,7 @@ export default function CampaignListPage() {
             <div className="h-12 w-12 rounded-xl bg-gray-100 flex items-center justify-center">
               <Plus size={20} className="text-gray-400" />
             </div>
-            <p className="text-sm">No campaigns yet. Create one to start importing Google Form leads.</p>
+            <p className="text-sm">No campaigns yet. Create one to start importing campaign leads.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

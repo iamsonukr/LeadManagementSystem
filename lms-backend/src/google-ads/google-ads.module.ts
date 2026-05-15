@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { ScheduleModule } from '@nestjs/schedule';
 import { GoogleAdsController } from './google-ads.controller';
 import { GoogleAdsService } from './google-ads.service';
 import {
@@ -11,7 +10,6 @@ import { Lead, LeadSchema } from '../leads/leads.entity';
 
 @Module({
   imports: [
-    ScheduleModule.forRoot(),
     MongooseModule.forFeature([
       { name: GoogleAdsCampaign.name, schema: GoogleAdsCampaignSchema },
       { name: Lead.name, schema: LeadSchema },

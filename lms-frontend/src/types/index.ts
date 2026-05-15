@@ -10,7 +10,7 @@ export type LeadStatus =
   | 'Duplicate'
   | 'Spam';
 
-export type LeadSource = 'Website' | 'Referral' | 'Social Media' | 'Paid Ads' | 'Email Campaign' | 'Trade India' | 'WhatsApp' | 'Facebook' | 'LinkedIn' | 'Other';
+export type LeadSource = 'Website' | 'Referral' | 'Social Media' | 'Paid Ads' | 'Email Campaign' | 'Trade India' | 'WhatsApp' | 'Facebook' | 'LinkedIn' | 'Google Ads' | 'Google Form' | 'Other';
 export type LeadPriority = 'Low' | 'Medium' | 'High';
 export type CallStatus = 'Connected' | 'Not Answered' | 'Busy' | 'Callback Scheduled' | 'Wrong Number' | 'Voicemail';
 export type CallDirection = 'Outgoing' | 'Incoming';
