@@ -10,14 +10,14 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 
 import {
-  GoogleAdsCampaign,
-  GoogleAdsCampaignDocument,
+  MetaAdsCampaign,
+  MetaAdsCampaignDocument,
   ColumnMapping,
-} from './google-ads-campaign.entity';
+} from './meta-ads-campaign.entity';
 import {
-  CreateGoogleAdsCampaignDto,
-  UpdateGoogleAdsCampaignDto,
-} from './google-ads.dto';
+  CreateMetaAdsCampaignDto,
+  UpdateMetaAdsCampaignDto,
+} from './meta-ads.dto';
 import { Lead, LeadDocument } from '../leads/leads.entity';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -95,10 +95,10 @@ function resolveHeaders(
   return resolved;
 }
 
-// ─── Google Sheets API helper ─────────────────────────────────────────────────
+// ─── Meta Sheets API helper ─────────────────────────────────────────────────
 
 /**
- * Extracts the spreadsheet ID from any Google Sheets URL format.
+ * Extracts the spreadsheet ID from any Meta Sheets URL format.
  */
 function extractSheetId(url: string): string | null {
   const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
@@ -106,14 +106,14 @@ function extractSheetId(url: string): string | null {
 }
 
 /**
- * Builds the Google Sheets API v4 URL (no auth — only works for public sheets).
+ * Builds the Meta Sheets API v4 URL (no auth — only works for public sheets).
  */
 function sheetsApiUrl(sheetId: string, range = 'Sheet1'): string {
-  return `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${process.env.GOOGLE_SHEETS_API_KEY ?? ''}`;
+  return `https://sheets.metaapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${process.env.GOOGLE_SHEETS_API_KEY ?? ''}`;
 }
 
 /**
- * Builds a published-CSV export URL from a Google Sheets URL.
+ * Builds a published-CSV export URL from a Meta Sheets URL.
  */
 function csvExportUrl(url: string): string | null {
   const sheetId = extractSheetId(url);
@@ -123,19 +123,19 @@ function csvExportUrl(url: string): string | null {
   const gidMatch = url.match(/[?&#]gid=(\d+)/);
   const gid = gidMatch ? gidMatch[1] : '0';
 
-  return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+  return `https://docs.meta.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
-export class GoogleAdsService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(GoogleAdsService.name);
+export class MetaAdsService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(MetaAdsService.name);
   private autoSyncTimer?: NodeJS.Timeout;
 
   constructor(
-    @InjectModel(GoogleAdsCampaign.name)
-    private readonly campaignModel: Model<GoogleAdsCampaignDocument>,
+    @InjectModel(MetaAdsCampaign.name)
+    private readonly campaignModel: Model<MetaAdsCampaignDocument>,
 
     @InjectModel(Lead.name)
     private readonly leadModel: Model<LeadDocument>,
@@ -158,7 +158,7 @@ export class GoogleAdsService implements OnModuleInit, OnModuleDestroy {
   // CAMPAIGN CRUD
   // ══════════════════════════════════════════════════════════════════
 
-  async createCampaign(dto: CreateGoogleAdsCampaignDto) {
+  async createCampaign(dto: CreateMetaAdsCampaignDto) {
     const sheetLink = (dto.sheetLink ?? dto.sheetUrl)?.trim();
     if (!sheetLink) {
       throw new BadRequestException('Sheet link is required');
@@ -171,7 +171,7 @@ export class GoogleAdsService implements OnModuleInit, OnModuleDestroy {
       sheetUrl: dto.sheetUrl ?? sheetLink,
       sheetLink,
       formLink: dto.formLink ?? '',
-      leadSource: dto.leadSource ?? 'Google Ads',
+      leadSource: dto.leadSource ?? 'Meta Ads',
       columnMapping,
     });
     return campaign;
@@ -190,7 +190,7 @@ export class GoogleAdsService implements OnModuleInit, OnModuleDestroy {
     return campaign;
   }
 
-  async updateCampaign(id: string, dto: UpdateGoogleAdsCampaignDto) {
+  async updateCampaign(id: string, dto: UpdateMetaAdsCampaignDto) {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid campaign id');
     }
@@ -351,7 +351,7 @@ export class GoogleAdsService implements OnModuleInit, OnModuleDestroy {
   // ══════════════════════════════════════════════════════════════════
 
   async fetchSheetRows(url: string): Promise<SheetRow[]> {
-    // Strategy 1: Google Sheets API v4 (needs API key in env)
+    // Strategy 1: Meta Sheets API v4 (needs API key in env)
     const apiKey = process.env.GOOGLE_SHEETS_API_KEY;
     console.log(apiKey , "Checking for API key...");
     console.log(`Fetching sheet rows from URL: ${url}`);
@@ -409,7 +409,7 @@ export class GoogleAdsService implements OnModuleInit, OnModuleDestroy {
   // ══════════════════════════════════════════════════════════════════
 
   private async importRows(
-    campaign: GoogleAdsCampaignDocument,
+    campaign: MetaAdsCampaignDocument,
     rows: SheetRow[],
   ) {
     if (rows.length === 0) {
@@ -431,15 +431,15 @@ export class GoogleAdsService implements OnModuleInit, OnModuleDestroy {
         const phone = String(mappedLead.phone ?? '').trim();
         const company = String(mappedLead.company ?? '').trim() || 'Unknown Company';
         const source =
-          String(mappedLead.source ?? campaign.leadSource ?? 'Google Ads').trim() ||
-          'Google Ads';
+          String(mappedLead.source ?? campaign.leadSource ?? 'Meta Ads').trim() ||
+          'Meta Ads';
         const status = String(mappedLead.status ?? 'New').trim() || 'New';
         const priority = String(mappedLead.priority ?? 'Medium').trim() || 'Medium';
         const currency = String(mappedLead.currency ?? 'USD').trim() || 'USD';
         const notes =
           String(mappedLead.notes ?? '').trim() ||
           this.cell(row, resolved.message) ||
-          `Imported via Google Ads campaign: ${campaign.campaignName}`;
+          `Imported via Meta Ads campaign: ${campaign.campaignName}`;
 
         // Skip rows with no useful contact info
         if (!email && !phone) {
@@ -472,7 +472,7 @@ export class GoogleAdsService implements OnModuleInit, OnModuleDestroy {
           tags: [
             ...new Set([
               ...((Array.isArray(mappedLead.tags) ? mappedLead.tags : []) as string[]),
-              'Google Ads',
+              'Meta Ads',
               campaign.campaignName,
             ]),
           ],
@@ -481,7 +481,7 @@ export class GoogleAdsService implements OnModuleInit, OnModuleDestroy {
             ...((typeof mappedLead.metadata === 'object' && mappedLead.metadata !== null
               ? mappedLead.metadata
               : {}) as Record<string, unknown>),
-            source: 'Google Ads',
+            source: 'Meta Ads',
             clientName: campaign.clientName,
             campaignName: campaign.campaignName,
             campaignId: String(campaign._id),

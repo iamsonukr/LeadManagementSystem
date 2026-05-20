@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-export type GoogleAdsCampaignDocument = GoogleAdsCampaign & Document;
+export type MetaAdsCampaignDocument = MetaAdsCampaign & Document;
 
 export interface ColumnMapping {
   name?: string;
@@ -12,8 +12,8 @@ export interface ColumnMapping {
   [key: string]: string | undefined;
 }
 
-@Schema({ timestamps: true, collection: 'google_ads_campaigns' })
-export class GoogleAdsCampaign {
+@Schema({ timestamps: true, collection: 'meta_ads_campaigns' })
+export class MetaAdsCampaign {
   @Prop({ required: true, trim: true })
   clientName!: string;
 
@@ -30,7 +30,7 @@ export class GoogleAdsCampaign {
   formLink?: string;
 
   // Per-campaign lead source label chosen by admin
-  @Prop({ default: 'Google Ads' })
+  @Prop({ default: 'Meta Ads' })
   leadSource!: string;
 
   // Column mapping: maps our field names → actual sheet column headers
@@ -54,5 +54,5 @@ export class GoogleAdsCampaign {
   isActive!: boolean;
 }
 
-export const GoogleAdsCampaignSchema =
-  SchemaFactory.createForClass(GoogleAdsCampaign);
+export const MetaAdsCampaignSchema =
+  SchemaFactory.createForClass(MetaAdsCampaign);

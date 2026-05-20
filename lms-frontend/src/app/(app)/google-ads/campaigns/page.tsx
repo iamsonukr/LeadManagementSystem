@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   Plus, RefreshCw, Trash2, PenLine, CheckCircle2,
   XCircle, Clock, AlertCircle, Loader2, ToggleLeft, ToggleRight,
+  Info, Copy, ExternalLink,
 } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
@@ -18,7 +19,7 @@ import {
   updateCampaign,
 } from '@/store/slices/googleAdsSlice';
 import { GoogleAdsCampaign } from '@/services/googleAdsService';
-import { formatDate, formatRelativeTime } from '@/lib/utils';
+import { formatRelativeTime } from '@/lib/utils';
 
 // ─── Sync status badge ────────────────────────────────────────────────────────
 function SyncBadge({ status }: { status: GoogleAdsCampaign['syncStatus'] }) {
@@ -57,6 +58,8 @@ export default function CampaignListPage() {
 
   const [createOpen, setCreateOpen]       = useState(false);
   const [deletingId, setDeletingId]       = useState<string | null>(null);
+  const [detailsCampaign, setDetailsCampaign] = useState<GoogleAdsCampaign | null>(null);
+  const [editingCampaign, setEditingCampaign] = useState<GoogleAdsCampaign | null>(null);
   const deletingCampaign = campaigns.find((c) => c._id === deletingId);
 
   useEffect(() => {
@@ -66,6 +69,12 @@ export default function CampaignListPage() {
   const handleCreate = async (payload: Parameters<typeof createCampaign>[0]) => {
     await dispatch(createCampaign(payload)).unwrap();
     setCreateOpen(false);
+  };
+
+  const handleUpdate = async (payload: Parameters<typeof createCampaign>[0]) => {
+    if (!editingCampaign) return;
+    await dispatch(updateCampaign({ id: editingCampaign._id, payload })).unwrap();
+    setEditingCampaign(null);
   };
 
   const handleDelete = () => {
@@ -202,6 +211,13 @@ export default function CampaignListPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setDetailsCampaign(campaign)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 text-gray-600 hover:bg-gray-100"
+                            title="View Details"
+                          >
+                            <Info size={14} />
+                          </button>
                           <Link
                             href={`/google-ads/campaigns/${campaign._id}/leads`}
                             className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
@@ -244,6 +260,69 @@ export default function CampaignListPage() {
         />
       </Modal>
 
+      {/* Campaign details */}
+      <Modal
+        open={!!detailsCampaign}
+        onClose={() => setDetailsCampaign(null)}
+        title=""
+        subtitle=""
+        size="md"
+      >
+        {detailsCampaign && (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-base font-bold text-gray-900">Campaign Details</h2>
+              <p className="mt-0.5 text-xs text-gray-500">Campaign links and ownership details.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Campaign Name</div>
+                <div className="truncate text-sm font-semibold text-gray-800" title={detailsCampaign.campaignName}>
+                  {detailsCampaign.campaignName}
+                </div>
+              </div>
+              <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Client Name</div>
+                <div className="truncate text-sm font-semibold text-gray-800" title={detailsCampaign.clientName}>
+                  {detailsCampaign.clientName}
+                </div>
+              </div>
+            </div>
+            <DetailLinkRow label="Sheet Link" value={detailsCampaign.sheetLink || detailsCampaign.sheetUrl} />
+            <DetailLinkRow label="Form Link" value={detailsCampaign.formLink} />
+            <button
+              type="button"
+              onClick={() => {
+                setEditingCampaign(detailsCampaign);
+                setDetailsCampaign(null);
+              }}
+              className="w-full rounded-lg border border-indigo-100 bg-indigo-50 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+            >
+              Edit Details
+            </button>
+          </div>
+        )}
+      </Modal>
+
+      {/* Edit campaign modal */}
+      <Modal
+        open={!!editingCampaign}
+        onClose={() => setEditingCampaign(null)}
+        title=""
+        subtitle=""
+        size="lg"
+      >
+        {editingCampaign && (
+          <CreateCampaignForm
+            key={editingCampaign._id}
+            initialData={editingCampaign}
+            onSave={handleUpdate}
+            onCancel={() => setEditingCampaign(null)}
+            isSubmitting={isSubmitting}
+          />
+        )}
+      </Modal>
+
       {/* Delete confirm */}
       <ConfirmDialog
         open={!!deletingId}
@@ -253,6 +332,46 @@ export default function CampaignListPage() {
         onConfirm={handleDelete}
         onClose={() => setDeletingId(null)}
       />
+    </div>
+  );
+}
+
+function DetailLinkRow({ label, value }: { label: string; value?: string }) {
+  const link = value?.trim();
+  const copyLink = () => {
+    if (!link) return;
+    void navigator.clipboard?.writeText(link);
+  };
+
+  return (
+    <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+      <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1 truncate text-sm text-gray-700" title={link || 'Not added'}>
+          {link || 'Not added'}
+        </div>
+        <button
+          type="button"
+          onClick={copyLink}
+          disabled={!link}
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-gray-500 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40"
+          title={`Copy ${label}`}
+        >
+          <Copy size={14} />
+        </button>
+        <a
+          href={link || undefined}
+          target="_blank"
+          rel="noreferrer"
+          aria-disabled={!link}
+          className={`flex h-8 w-8 items-center justify-center rounded-lg bg-white ${
+            link ? 'text-gray-500 hover:text-indigo-600' : 'pointer-events-none text-gray-300'
+          }`}
+          title={`Open ${label}`}
+        >
+          <ExternalLink size={14} />
+        </a>
+      </div>
     </div>
   );
 }

@@ -9,7 +9,9 @@ export interface ColumnMapping {
   email?: string;
   phone?: string;
   company?: string;
+  notes?: string;
   message?: string;
+  [key: string]: string | undefined;
 }
 
 export interface GoogleAdsCampaign {
@@ -17,6 +19,8 @@ export interface GoogleAdsCampaign {
   clientName: string;
   campaignName: string;
   sheetUrl: string;
+  sheetLink?: string;
+  formLink?: string;
   leadSource: string;
   columnMapping: ColumnMapping;
   syncStatus: 'idle' | 'syncing' | 'success' | 'error';
@@ -31,7 +35,9 @@ export interface GoogleAdsCampaign {
 export interface CreateCampaignPayload {
   clientName: string;
   campaignName: string;
-  sheetUrl: string;
+  sheetUrl?: string;
+  sheetLink?: string;
+  formLink?: string;
   leadSource?: string;
   columnMapping?: ColumnMapping;
 }

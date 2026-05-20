@@ -160,7 +160,7 @@ export class ColumnMappingDto {
   message?: string;
 }
 
-export class CreateGoogleAdsCampaignDto {
+export class CreateMetaAdsCampaignDto {
   @ApiProperty({ example: 'Acme Corp' })
   @IsString()
   clientName!: string;
@@ -169,22 +169,22 @@ export class CreateGoogleAdsCampaignDto {
   @IsString()
   campaignName!: string;
 
-  @ApiPropertyOptional({ example: 'https://docs.google.com/spreadsheets/d/...' })
+  @ApiPropertyOptional({ example: 'https://docs.meta.com/spreadsheets/d/...' })
   @IsOptional()
   @IsString()
   sheetUrl?: string;
 
-  @ApiPropertyOptional({ example: 'https://docs.google.com/spreadsheets/d/...' })
+  @ApiPropertyOptional({ example: 'https://docs.meta.com/spreadsheets/d/...' })
   @IsOptional()
   @IsString()
   sheetLink?: string;
 
-  @ApiPropertyOptional({ example: 'https://docs.google.com/forms/d/...' })
+  @ApiPropertyOptional({ example: 'https://docs.meta.com/forms/d/...' })
   @IsOptional()
   @IsString()
   formLink?: string;
 
-  @ApiPropertyOptional({ example: 'Google Ads' })
+  @ApiPropertyOptional({ example: 'Meta Ads' })
   @IsOptional()
   @IsString()
   leadSource?: string;
@@ -197,7 +197,7 @@ export class CreateGoogleAdsCampaignDto {
   columnMapping?: ColumnMappingDto;
 }
 
-export class UpdateGoogleAdsCampaignDto extends PartialType(CreateGoogleAdsCampaignDto) {
+export class UpdateMetaAdsCampaignDto extends PartialType(CreateMetaAdsCampaignDto) {
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
