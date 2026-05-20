@@ -2,10 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MetaAdsController } from './meta-ads.controller';
 import { MetaAdsService } from './meta-ads.service';
-import {
-  MetaAdsCampaign,
-  MetaAdsCampaignSchema,
-} from './meta-ads-campaign.entity';
+import { MetaAdsCampaign, MetaAdsCampaignSchema } from './meta-ads-campaign.entity';
 import { Lead, LeadSchema } from '../leads/leads.entity';
 
 @Module({

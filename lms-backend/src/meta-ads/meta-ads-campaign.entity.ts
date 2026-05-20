@@ -3,15 +3,6 @@ import { Document } from 'mongoose';
 
 export type MetaAdsCampaignDocument = MetaAdsCampaign & Document;
 
-export interface ColumnMapping {
-  name?: string;
-  email?: string;
-  phone?: string;
-  company?: string;
-  notes?: string;
-  [key: string]: string | undefined;
-}
-
 @Schema({ timestamps: true, collection: 'meta_ads_campaigns' })
 export class MetaAdsCampaign {
   @Prop({ required: true, trim: true })
@@ -20,25 +11,24 @@ export class MetaAdsCampaign {
   @Prop({ required: true, trim: true })
   campaignName!: string;
 
+  // Facebook Page ID this campaign is linked to
   @Prop({ required: true, trim: true })
-  sheetUrl!: string;
+  pageId!: string;
 
-  @Prop({ trim: true })
-  sheetLink?: string;
-
+  // Optional: filter to a specific lead form ID (blank = all forms for the page)
   @Prop({ trim: true, default: '' })
-  formLink?: string;
+  formId?: string;
 
-  // Per-campaign lead source label chosen by admin
+  // Optional: ad account ID for reference
+  @Prop({ trim: true, default: '' })
+  adAccountId?: string;
+
+  // Per-campaign lead source label
   @Prop({ default: 'Meta Ads' })
   leadSource!: string;
 
-  // Column mapping: maps our field names → actual sheet column headers
-  @Prop({ type: Object, default: {} })
-  columnMapping!: ColumnMapping;
-
-  // Sync metadata
-  @Prop({ default: 'idle' }) // idle | syncing | success | error
+  // Webhook status: idle | active | error
+  @Prop({ default: 'idle' })
   syncStatus!: string;
 
   @Prop({ type: Date })
@@ -54,5 +44,4 @@ export class MetaAdsCampaign {
   isActive!: boolean;
 }
 
-export const MetaAdsCampaignSchema =
-  SchemaFactory.createForClass(MetaAdsCampaign);
+export const MetaAdsCampaignSchema = SchemaFactory.createForClass(MetaAdsCampaign);

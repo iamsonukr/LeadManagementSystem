@@ -12,6 +12,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { GoogleAdsModule } from './google-ads/google-ads.module';
+import { MetaAdsModule } from './meta-ads/meta-ads.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { GoogleAdsModule } from './google-ads/google-ads.module';
     IntegrationsModule,
     NotificationsModule,
     GoogleAdsModule,
+    MetaAdsModule,
   ],
 })
 export class AppModule {}

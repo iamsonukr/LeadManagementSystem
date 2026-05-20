@@ -25,7 +25,7 @@ export const canAccessPath = (user: AuthUser | null, path: string) => {
   if (path.startsWith('/users') || path.startsWith('/settings') || path.startsWith('/team')) {
     return canManageSystem(user);
   }
-  if (path.startsWith('/google-ads')) {
+  if (path.startsWith('/google-ads') || path.startsWith('/meta-ads')) {
     return isAdmin(user) || isManager(user);
   }
   if (path.startsWith('/reports')) {

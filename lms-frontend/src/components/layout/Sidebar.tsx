@@ -18,6 +18,7 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/leads', label: 'Leads', icon: Users },
   { href: '/google-ads/campaigns', label: 'Google Ads', icon: Megaphone },
+  { href: '/meta-ads/campaigns', label: 'Meta Ads', icon: Megaphone },
   { href: '/followups', label: 'Follow Ups', icon: CalendarClock },
   // { href: '/contacts', label: 'Contacts', icon: UserCircle },
   // { href: '/companies', label: 'Companies', icon: Building2 },

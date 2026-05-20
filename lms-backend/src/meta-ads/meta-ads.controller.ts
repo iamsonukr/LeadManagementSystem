@@ -8,61 +8,94 @@ import {
   Post,
   Query,
   UseGuards,
+  Headers,
+  Res,
+  HttpCode,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ROLES } from '../auth/roles';
 import { MetaAdsService } from './meta-ads.service';
-import {
-  CreateMetaAdsCampaignDto,
-  UpdateMetaAdsCampaignDto,
-} from './meta-ads.dto';
+import { CreateMetaAdsCampaignDto, UpdateMetaAdsCampaignDto } from './meta-ads.dto';
 
 @ApiTags('Meta Ads')
-@ApiBearerAuth()
 @Controller('meta-ads')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
-@Roles(ROLES.ADMIN, ROLES.MANAGER)
 export class MetaAdsController {
   constructor(private readonly service: MetaAdsService) {}
 
-  // ─── Campaigns ──────────────────────────────────────────────────
+  // ─── Facebook Webhook (no auth - public) ────────────────────────
 
+  @Get('webhook')
+  verifyWebhook(
+    @Query('hub.mode') mode: string,
+    @Query('hub.verify_token') token: string,
+    @Query('hub.challenge') challenge: string,
+    @Res() res: Response,
+  ) {
+    const result = this.service.verifyWebhook(mode, token, challenge);
+    return res.status(200).send(result);
+  }
+
+  @Post('webhook')
+  @HttpCode(200)
+  handleWebhook(
+    @Body() body: any,
+    @Headers('x-hub-signature-256') signature: string,
+  ) {
+    return this.service.handleWebhookEvent(body, signature);
+  }
+
+  // ─── Campaigns (protected) ────────────────────────────────────────
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.MANAGER)
   @Post('campaigns')
   @Roles(ROLES.ADMIN)
   createCampaign(@Body() dto: CreateMetaAdsCampaignDto) {
     return this.service.createCampaign(dto);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.MANAGER)
   @Get('campaigns')
   getAllCampaigns() {
     return this.service.getAllCampaigns();
   }
 
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.MANAGER)
   @Get('campaigns/:id')
   getCampaign(@Param('id') id: string) {
     return this.service.getCampaignById(id);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.MANAGER)
   @Patch('campaigns/:id')
-  @Roles(ROLES.ADMIN)
-  updateCampaign(
-    @Param('id') id: string,
-    @Body() dto: UpdateMetaAdsCampaignDto,
-  ) {
+  updateCampaign(@Param('id') id: string, @Body() dto: UpdateMetaAdsCampaignDto) {
     return this.service.updateCampaign(id, dto);
   }
 
-  @Delete('campaigns/:id')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(ROLES.ADMIN)
+  @Delete('campaigns/:id')
   deleteCampaign(@Param('id') id: string) {
     return this.service.deleteCampaign(id);
   }
 
-  // ─── Campaign Leads ──────────────────────────────────────────────
+  // ─── Campaign Leads ────────────────────────────────────────────────
 
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.MANAGER)
   @Get('campaigns/:id/leads')
   getCampaignLeads(
     @Param('id') id: string,
@@ -70,7 +103,6 @@ export class MetaAdsController {
     @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
-    @Query('source') source?: string,
     @Query('priority') priority?: string,
   ) {
     return this.service.getCampaignLeads(id, {
@@ -78,22 +110,17 @@ export class MetaAdsController {
       limit: limit ? Number(limit) : 50,
       search,
       status,
-      source,
       priority,
     });
   }
 
-  // ─── Sync ────────────────────────────────────────────────────────
+  // ─── Manual Sync (pull from Graph API) ───────────────────────────
 
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.MANAGER)
   @Post('campaigns/:id/sync')
-  syncCampaign(@Param('id') id: string) {
-    return this.service.syncCampaign(id);
-  }
-
-  // ─── Sheet Preview (for column mapping UI) ───────────────────────
-
-  @Post('preview-headers')
-  previewHeaders(@Body('sheetUrl') sheetUrl: string) {
-    return this.service.previewSheetHeaders(sheetUrl);
+  manualSync(@Param('id') id: string) {
+    return this.service.manualSync(id);
   }
 }
