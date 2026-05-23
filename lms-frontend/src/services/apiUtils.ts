@@ -80,6 +80,7 @@ const getDepartmentName = (value: unknown): string => {
 export const normalizeLead = (raw: unknown): Lead => {
   const item = asRecord(raw);
   const address = asRecord(item.address);
+  const metadata = asRecord(item.metadata);
 
   return {
     id: getId(item),
@@ -118,6 +119,9 @@ export const normalizeLead = (raw: unknown): Lead => {
     lastCallDate: item.lastCallDate ? String(item.lastCallDate) : undefined,
     nextFollowUp: item.nextFollowUp ? String(item.nextFollowUp) : undefined,
     notes: item.notes ? String(item.notes) : undefined,
+    metadata: Object.fromEntries(
+      Object.entries(metadata).map(([key, value]) => [key, String(value)]),
+    ),
     createdAt: String(item.createdAt ?? new Date().toISOString()),
     updatedAt: String(item.updatedAt ?? item.createdAt ?? new Date().toISOString()),
   };

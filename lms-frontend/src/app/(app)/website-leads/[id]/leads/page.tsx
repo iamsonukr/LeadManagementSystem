@@ -56,7 +56,7 @@ export default function WebsiteSourceLeadsPage() {
 
   // Collect unique domains from leads for domain filter
   const uniqueDomains = Array.from(
-    new Set(leads.map((l) => (l.metadata as Record<string, string>)?.originDomain).filter(Boolean))
+    new Set(leads.map((l) => l.metadata?.originDomain).filter(Boolean))
   );
 
   const selectCls = 'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-indigo-400';
@@ -164,7 +164,7 @@ export default function WebsiteSourceLeadsPage() {
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {leads.map((lead) => (
-              <LeadCard key={lead._id} lead={lead} />
+              <LeadCard key={lead.id} lead={lead} />
             ))}
           </div>
 

@@ -52,6 +52,7 @@ export interface Lead {
   lastCallDate?: string;
   nextFollowUp?: string;
   notes?: string;
+  metadata?: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 }

@@ -12,6 +12,24 @@ import { WebsiteSource, WebsiteSourceDocument } from './website-source.entity';
 import { CreateWebsiteSourceDto, UpdateWebsiteSourceDto } from './website-leads.dto';
 import { Lead, LeadDocument } from '../leads/leads.entity';
 
+const LEAD_ARRAY_FIELDS = new Set(['services', 'tags']);
+const LEAD_NUMBER_FIELDS = new Set([
+  'leadValue',
+  'stageProbability',
+  'budget',
+  'aiScore',
+  'callCount',
+]);
+const LEAD_DATE_FIELDS = new Set([
+  'expectedCloseDate',
+  'lastActivityAt',
+  'lastContactedAt',
+  'lastCallDate',
+  'nextFollowUp',
+]);
+const LEAD_OBJECT_FIELDS = new Set(['address']);
+const LEAD_OBJECT_ID_FIELDS = new Set(['assignedTo', 'department']);
+
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -114,13 +132,34 @@ export class WebsiteLeadsService {
     const domainTag = isKnownDomain ? originDomain : 'Unknown Source';
 
     // ── Extract standard fields using configured field names ──────
-    const getString = (key: string) =>
-      typeof body[key] === 'string' ? (body[key] as string).trim() : '';
+    const getString = (key: string) => {
+      const value = body[key];
+      if (typeof value === 'string') return value.trim();
+      if (typeof value === 'number' || typeof value === 'boolean') {
+        return String(value).trim();
+      }
+      return '';
+    };
 
-    const name  = getString(source.nameField)    || getString('name')    || getString('full_name') || '';
-    const email = getString(source.emailField)   || getString('email')   || '';
-    const phone = getString(source.phoneField)   || getString('phone')   || getString('mobile')   || '';
-    const message = getString(source.messageField) || getString('message') || getString('notes') || '';
+    const standardName = getString(source.nameField) || getString('name') || getString('full_name') || '';
+    const standardEmail = getString(source.emailField) || getString('email') || '';
+    const standardPhone = getString(source.phoneField) || getString('phone') || getString('mobile') || '';
+    const standardMessage = getString(source.messageField) || getString('message') || getString('notes') || '';
+
+    const mappedLead: Record<string, unknown> = {};
+    const mappedMetadata: Record<string, string> = {};
+
+    for (const mapping of source.customFields ?? []) {
+      const value = getString(mapping.websiteField);
+      if (!value) continue;
+
+      this.applyCustomFieldMapping(mapping, value, mappedLead, mappedMetadata);
+    }
+
+    const name = standardName || this.stringValue(mappedLead.name);
+    const email = (standardEmail || this.stringValue(mappedLead.email)).toLowerCase();
+    const phone = standardPhone || this.stringValue(mappedLead.phone);
+    const message = standardMessage || this.stringValue(mappedLead.notes);
 
     if (!name && !email && !phone) {
       throw new BadRequestException('At least one of name, email, or phone is required');
@@ -139,29 +178,27 @@ export class WebsiteLeadsService {
     }
 
     // ── Extract custom fields ─────────────────────────────────────
-    const customData: Record<string, string> = {};
-    for (const mapping of source.customFields ?? []) {
-      const val = getString(mapping.websiteField);
-      if (val) customData[mapping.websiteField] = val;
-    }
+    const mappedTags = Array.isArray(mappedLead.tags) ? (mappedLead.tags as string[]) : [];
 
     // ── Save lead ─────────────────────────────────────────────────
     const lead = await this.leadModel.create({
+      ...mappedLead,
       name: name || 'Website Lead',
       email: email || `website.${Date.now()}@noemail.com`,
       phone,
       notes: message,
-      source: source.leadSource ?? 'Website',
-      status: 'New',
-      priority: 'Medium',
-      tags: ['Website', domainTag, source.name],
+      source: this.stringValue(mappedLead.source) || source.leadSource || 'Website',
+      status: this.stringValue(mappedLead.status) || 'New',
+      priority: this.stringValue(mappedLead.priority) || 'Medium',
+      currency: this.stringValue(mappedLead.currency) || 'USD',
+      tags: [...new Set(['Website', domainTag, source.name, ...mappedTags])],
       metadata: {
         source: 'Website',
         sourceId: String(source._id),
         sourceName: source.name,
         originDomain: domainTag,
         isKnownDomain: String(isKnownDomain),
-        ...customData,
+        ...mappedMetadata,
       },
     });
 
@@ -261,6 +298,92 @@ export class WebsiteLeadsService {
   // ══════════════════════════════════════════════════════════════════
   // HELPERS
   // ══════════════════════════════════════════════════════════════════
+
+  private applyCustomFieldMapping(
+    mapping: { websiteField: string; lmsField?: string },
+    value: string,
+    lead: Record<string, unknown>,
+    metadata: Record<string, string>,
+  ) {
+    const target = (mapping.lmsField || 'metadata.custom').trim();
+
+    if (target === 'metadata' || target === 'metadata.custom') {
+      metadata[mapping.websiteField] = value;
+      return;
+    }
+
+    if (target.startsWith('metadata.')) {
+      const metadataKey = target.slice('metadata.'.length).trim();
+      metadata[metadataKey || mapping.websiteField] = value;
+      return;
+    }
+
+    const coerced = this.coerceLeadValue(target, value);
+    if (coerced === undefined) return;
+
+    this.setNestedLeadValue(lead, target, coerced);
+  }
+
+  private coerceLeadValue(fieldPath: string, value: string): unknown {
+    const field = fieldPath.split('.')[0];
+
+    if (LEAD_ARRAY_FIELDS.has(field)) {
+      return value
+        .split(/[,;\n]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    if (LEAD_NUMBER_FIELDS.has(field)) {
+      const parsed = Number(value.replace(/,/g, ''));
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+
+    if (LEAD_DATE_FIELDS.has(field)) {
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+    }
+
+    if (LEAD_OBJECT_ID_FIELDS.has(field)) {
+      return Types.ObjectId.isValid(value) ? new Types.ObjectId(value) : undefined;
+    }
+
+    if (LEAD_OBJECT_FIELDS.has(field) && !fieldPath.includes('.')) {
+      try {
+        return JSON.parse(value) as Record<string, unknown>;
+      } catch {
+        return { value };
+      }
+    }
+
+    return value.trim();
+  }
+
+  private setNestedLeadValue(
+    target: Record<string, unknown>,
+    path: string,
+    value: unknown,
+  ) {
+    const parts = path.split('.').map((part) => part.trim()).filter(Boolean);
+    if (parts.length === 0) return;
+
+    let cursor = target;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const key = parts[i];
+      const existing = cursor[key];
+      if (!existing || typeof existing !== 'object' || Array.isArray(existing)) {
+        cursor[key] = {};
+      }
+      cursor = cursor[key] as Record<string, unknown>;
+    }
+
+    cursor[parts[parts.length - 1]] = value;
+  }
+
+  private stringValue(value: unknown) {
+    if (value === undefined || value === null) return '';
+    return String(value).trim();
+  }
 
   private extractDomain(origin: string): string {
     try {
