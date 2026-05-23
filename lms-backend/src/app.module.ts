@@ -13,6 +13,7 @@ import { IntegrationsModule } from './integrations/integrations.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { GoogleAdsModule } from './google-ads/google-ads.module';
 import { MetaAdsModule } from './meta-ads/meta-ads.module';
+import { WebsiteLeadsModule } from './website-leads/website-leads.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { MetaAdsModule } from './meta-ads/meta-ads.module';
     NotificationsModule,
     GoogleAdsModule,
     MetaAdsModule,
+    WebsiteLeadsModule,
   ],
 })
 export class AppModule {}

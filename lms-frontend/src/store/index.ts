@@ -8,6 +8,7 @@ import usersReducer from './slices/usersSlice';
 import uiReducer from './slices/uiSlice';
 import googleAdsReducer from './slices/googleAdsSlice';
 import metaAdsReducer from './slices/metaAdsSlice';
+import websiteLeadsReducer from './slices/websiteLeadsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -20,6 +21,7 @@ export const store = configureStore({
     ui: uiReducer,
     googleAds: googleAdsReducer,
     metaAds: metaAdsReducer,
+    websiteLeads: websiteLeadsReducer,
   },
 });
 

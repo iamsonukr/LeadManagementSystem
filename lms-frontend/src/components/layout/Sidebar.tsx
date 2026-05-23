@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Users, CheckSquare,
-  Phone, BarChart2, UserCog, Settings, CalendarClock, X, Megaphone
+  Phone, BarChart2, UserCog, Settings, CalendarClock, X, Megaphone, Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDispatch, useSelector } from 'react-redux';
@@ -19,6 +19,7 @@ const navItems = [
   { href: '/leads', label: 'Leads', icon: Users },
   { href: '/google-ads/campaigns', label: 'Google Ads', icon: Megaphone },
   { href: '/meta-ads/campaigns', label: 'Meta Ads', icon: Megaphone },
+  { href: '/website-leads', label: 'Website Leads', icon: Globe },
   { href: '/followups', label: 'Follow Ups', icon: CalendarClock },
   // { href: '/contacts', label: 'Contacts', icon: UserCircle },
   // { href: '/companies', label: 'Companies', icon: Building2 },

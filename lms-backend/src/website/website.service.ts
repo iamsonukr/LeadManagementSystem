@@ -12,11 +12,11 @@ import * as crypto from 'crypto';
 import {
   MetaAdsCampaign,
   MetaAdsCampaignDocument,
-} from './meta-ads-campaign.entity';
+} from './website-leads';
 import {
   CreateMetaAdsCampaignDto,
   UpdateMetaAdsCampaignDto,
-} from './meta-ads.dto';
+} from './website.dto';
 import { Lead, LeadDocument } from '../leads/leads.entity';
 
 export interface LeadResult {
@@ -139,6 +139,7 @@ export class MetaAdsService {
 
   verifyWebhook(mode: string, token: string, challenge: string): string {
     if (mode === 'subscribe' && token === process.env.FB_WEBHOOK_VERIFY_TOKEN) {
+      console.log("This is Meta code", process.env.FB_WEBHOOK_VERIFY_TOKEN);
       this.logger.log('Facebook webhook verified');
       return challenge;
     }
